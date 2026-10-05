@@ -36,6 +36,10 @@ public class DiningTableVO implements Serializable {
      * 座位数
      */
     private Integer capacity;
+    /** 本桌当前桌次已确认的人数与餐具，清台后为0。 */
+    private Integer guestCount = 0;
+    private Integer tablewareQuantity = 0;
+    private java.math.BigDecimal tablewareAmount = java.math.BigDecimal.ZERO;
 
     /**
      * 状态（0空闲 1占用 2已结账 3待清洁）

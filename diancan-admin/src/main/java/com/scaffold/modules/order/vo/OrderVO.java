@@ -37,6 +37,15 @@ public class OrderVO implements Serializable {
      */
     private String areaName;
 
+    /** 本桌用餐人数，历史账单为0（未记录）。 */
+    private Integer guestCount;
+    /** 独立餐具费用，不能作为菜品参与退菜、赠送或折扣。 */
+    private Integer tablewareQuantity;
+    private BigDecimal tablewareUnitPrice;
+    private BigDecimal tablewareAmount;
+    /** 同一桌次只有一个餐具费用归属账单。 */
+    private Integer tablewareOwner;
+
     private BigDecimal originalAmount;
 
     private BigDecimal discountRate;

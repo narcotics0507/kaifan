@@ -90,6 +90,7 @@ import java.util.concurrent.TimeUnit;
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements OrderService {
 
     private final RestaurantFeatures restaurantFeatures;
+    private final com.scaffold.modules.order.service.TablewareBilling tablewareBilling;
     private final com.scaffold.modules.order.service.OrderReturnRecords returnRecords;
     private final com.scaffold.modules.print.service.KitchenPaperService kitchenPapers;
 
@@ -180,9 +181,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             order.setTableId(tableId);
             order.setTableCode(table.getCode());
             order.setTableSessionCode(tableSessionCode);
+            initializeTableware(order, dto.getGuestCount());
+            originalAmount = originalAmount.add(com.scaffold.modules.order.service.TablewareBilling.amount(order));
             order.setOriginalAmount(originalAmount);
             order.setDiscountRate(BigDecimal.ONE);
-            order.setActualAmount(originalAmount);
+            order.setActualAmount(calculateActualAmount(order, originalAmount));
             order.setPointsUsed(0);
             order.setPointsDiscountAmount(BigDecimal.ZERO);
             order.setPaidAmount(BigDecimal.ZERO);
@@ -307,9 +310,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             order.setTableId(tableId);
             order.setTableCode(tableCode);
             order.setTableSessionCode(tableSessionCode);
+            initializeTableware(order, dto.getGuestCount());
+            originalAmount = originalAmount.add(com.scaffold.modules.order.service.TablewareBilling.amount(order));
             order.setOriginalAmount(originalAmount);
             order.setDiscountRate(resolveMemberDiscountRate(dto.getUserId()));
-            order.setActualAmount(originalAmount);
+            order.setActualAmount(calculateActualAmount(order, originalAmount));
             order.setPointsUsed(0);
             order.setPointsDiscountAmount(BigDecimal.ZERO);
             order.setPaidAmount(BigDecimal.ZERO);
@@ -569,6 +574,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         BigDecimal newOriginalAmount = allItems.stream()
                 .map(OrderItem::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        newOriginalAmount = newOriginalAmount.add(com.scaffold.modules.order.service.TablewareBilling.amount(order));
         BigDecimal newActualAmount = calculateActualAmount(order, newOriginalAmount);
 
         order.setOriginalAmount(newOriginalAmount);
@@ -588,6 +594,65 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 orderId, dto.getDishId(), dto.getQuantity(), newActualAmount);
 
         return orderVO;
+    }
+
+    private void initializeTableware(Order order, Integer guests) {
+        List<Order> prior = baseMapper.selectList(new LambdaQueryWrapper<Order>()
+                .eq(Order::getTableId, order.getTableId()).eq(Order::getTableSessionCode, order.getTableSessionCode())
+                .in(Order::getStatus, 0, 1).orderByAsc(Order::getId).last("FOR UPDATE"));
+        if (prior.isEmpty()) tablewareBilling.initialize(order, guests, true);
+        else tablewareBilling.initialize(order, prior.stream().filter(p -> p.getGuestCount() != null && p.getGuestCount() > 0)
+                .map(Order::getGuestCount).findFirst().orElse(null), false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderVO updateTableware(Long orderId, com.scaffold.modules.order.dto.TablewareUpdateDTO dto) {
+        if (dto.getGuestCount() == null || dto.getGuestCount() < 1 || dto.getGuestCount() > 99
+                || dto.getQuantity() == null || dto.getQuantity() < 0 || dto.getQuantity() > 99
+                || dto.getReason() == null || dto.getReason().isBlank() || dto.getReason().length() > 150
+                || dto.getRequestId() == null || !dto.getRequestId().matches("[a-zA-Z0-9-]{16,80}")) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "请填写人数、餐具套数和调整原因");
+        }
+        Order snapshot = baseMapper.selectById(orderId);
+        if (snapshot == null) throw new BusinessException(ResultCode.ORDER_NOT_FOUND);
+        DiningTable table = diningTableService.getOne(new LambdaQueryWrapper<DiningTable>()
+                .eq(DiningTable::getId, snapshot.getTableId()).last("FOR UPDATE"));
+        Order order = baseMapper.selectByIdForUpdate(orderId);
+        for (OrderOperationLog log : orderOperationLogMapper.selectList(new LambdaQueryWrapper<OrderOperationLog>()
+                .eq(OrderOperationLog::getOrderId, orderId).eq(OrderOperationLog::getOperationType, "TABLEWARE"))) {
+            var prior = cn.hutool.json.JSONUtil.parseObj(log.getDetail());
+            if (dto.getRequestId().equals(prior.getStr("requestId"))) {
+                if (!dto.getGuestCount().equals(prior.getInt("guestCount")) || !dto.getQuantity().equals(prior.getInt("quantity"))
+                        || !dto.getReason().trim().equals(log.getReason())) throw new BusinessException(ResultCode.PARAM_ERROR, "重复调整内容不一致");
+                return buildOrderVO(order, queryOrderItemsForUpdate(orderId));
+            }
+        }
+        if (table == null || !Integer.valueOf(1).equals(table.getStatus()) || !java.util.Objects.equals(table.getCurrentSessionCode(), order.getTableSessionCode())
+                || !(Integer.valueOf(0).equals(order.getStatus()) || (Integer.valueOf(1).equals(order.getStatus()) && order.getActualAmount().signum() == 0)) || (order.getPaidAmount() != null && order.getPaidAmount().signum() > 0)
+                || paymentRecordMapper.selectCount(new LambdaQueryWrapper<PaymentRecord>().eq(PaymentRecord::getOrderId, orderId).in(PaymentRecord::getStatus, 1, 2)) > 0) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ERROR, "已收款或本次用餐已结束，不能再调整餐具费");
+        }
+        List<Order> peers = baseMapper.selectList(new LambdaQueryWrapper<Order>().eq(Order::getTableId, order.getTableId())
+                .eq(Order::getTableSessionCode, order.getTableSessionCode()).in(Order::getStatus, 0, 1).orderByAsc(Order::getId).last("FOR UPDATE"));
+        if (peers.stream().anyMatch(p -> !p.getId().equals(orderId) && Integer.valueOf(1).equals(p.getTablewareOwner()))) {
+            throw new BusinessException(ResultCode.ORDER_STATUS_ERROR, "请在本桌首次账单中调整餐具，不能重复收费");
+        }
+        BigDecimal before = com.scaffold.modules.order.service.TablewareBilling.amount(order);
+        int oldGuests = order.getGuestCount() == null ? 0 : order.getGuestCount();
+        int oldQuantity = order.getTablewareQuantity() == null ? 0 : order.getTablewareQuantity();
+        order.setGuestCount(dto.getGuestCount()); order.setTablewareQuantity(dto.getQuantity()); order.setTablewareOwner(1);
+        order.setTablewareUnitPrice(com.scaffold.modules.order.service.TablewareBilling.UNIT_PRICE);
+        order.setTablewareAmount(order.getTablewareUnitPrice().multiply(BigDecimal.valueOf(dto.getQuantity())));
+        if (Integer.valueOf(1).equals(order.getStatus()) && order.getTablewareAmount().signum() > 0) order.setStatus(0);
+        recalculateOrderAmount(order);
+        logOperation(orderId, null, "TABLEWARE", dto.getReason().trim(), cn.hutool.json.JSONUtil.createObj()
+                .set("requestId", dto.getRequestId()).set("oldGuestCount", oldGuests).set("guestCount", dto.getGuestCount())
+                .set("oldQuantity", oldQuantity).set("quantity", dto.getQuantity()).set("oldAmount", before)
+                .set("tablewareAmount", order.getTablewareAmount()).set("amount", order.getTablewareAmount().subtract(before))
+                .set("dishName", "一次性餐具").toString());
+        notifyOrderChanged(orderId);
+        return buildOrderVO(order, queryOrderItemsForUpdate(orderId));
     }
 
     @Override
@@ -1487,7 +1552,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     }
 
     /**
-     * 重算订单金额：originalAmount = 非赠送订单项金额之和，actualAmount = 折扣后金额 - 优惠券抵扣
+     * 重算订单金额：菜品金额按原规则调整，独立餐具费只计一次且不参与菜品折扣
      */
     private void recalculateOrderAmount(Order order) {
         List<OrderItem> items = queryOrderItemsForUpdate(order.getId());
@@ -1495,6 +1560,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 .filter(i -> i.getIsGift() == null || i.getIsGift() == 0)
                 .map(OrderItem::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        originalAmount = originalAmount.add(com.scaffold.modules.order.service.TablewareBilling.amount(order));
         order.setOriginalAmount(originalAmount);
         Long userId = restaurantFeatures.isMembership() ? resolveOrderUserId(order) : null;
         if (restaurantFeatures.isMembership()) memberBenefitService.adjustOrderPointsDeduction(order, userId);
@@ -1502,7 +1568,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         order.setActualAmount(actualAmount);
 
         // 订单项被全部退掉：自动取消并释放桌台
-        if (items.isEmpty()) {
+        if (items.isEmpty() && com.scaffold.modules.order.service.TablewareBilling.amount(order).signum() == 0) {
             order.setPaidAmount(BigDecimal.ZERO);
             order.setStatus(2); // 已取消
             updateById(order);
@@ -1565,7 +1631,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
      */
     private BigDecimal calculateActualAmount(Order order, BigDecimal originalAmount) {
         BigDecimal discountRate = order.getDiscountRate() == null ? BigDecimal.ONE : order.getDiscountRate();
-        BigDecimal discountedAmount = originalAmount.multiply(discountRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal tableware = com.scaffold.modules.order.service.TablewareBilling.amount(order);
+        BigDecimal discountedAmount = originalAmount.subtract(tableware).max(BigDecimal.ZERO).multiply(discountRate).setScale(2, RoundingMode.HALF_UP);
         BigDecimal pointsDeduction = !restaurantFeatures.isMembership() || order.getPointsDiscountAmount() == null ? BigDecimal.ZERO : order.getPointsDiscountAmount();
         BigDecimal amountAfterPoints = discountedAmount.subtract(pointsDeduction).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
         BigDecimal couponDeduction = calculateCouponDeduction(order, amountAfterPoints);
@@ -1573,7 +1640,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         if (actualAmount.compareTo(BigDecimal.ZERO) < 0) {
             actualAmount = BigDecimal.ZERO;
         }
-        return actualAmount.setScale(2, RoundingMode.HALF_UP);
+        return actualAmount.add(tableware).setScale(2, RoundingMode.HALF_UP);
     }
 
     /**

@@ -125,8 +125,12 @@ public class H5Service {
     }
     @Transactional(rollbackFor=Exception.class)
     public OrderVO submit(Long tableId,String sessionCode,String requestId,String remark) {
+        return submit(tableId, sessionCode, requestId, remark, null);
+    }
+    @Transactional(rollbackFor=Exception.class)
+    public OrderVO submit(Long tableId,String sessionCode,String requestId,String remark,Integer guestCount) {
         guest();String openid=SessionUtils.getCurrentOpenid();Long userId=StpUtil.getLoginIdAsLong();
-        String fingerprint=DigestUtil.sha256Hex(tableId+":"+sessionCode+":"+Objects.toString(remark,""));
+        String fingerprint=DigestUtil.sha256Hex(tableId+":"+sessionCode+":"+Objects.toString(remark,"")+(guestCount==null?"":":"+guestCount));
         // The request row lock serializes retries, and commits with all order writes.
         jdbc.update("INSERT INTO h5_submission(user_id,request_id,fingerprint,table_id) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE request_id=request_id",userId,requestId,fingerprint,tableId);
         Map<String,Object> submitted=jdbc.queryForMap("SELECT fingerprint,order_id FROM h5_submission WHERE user_id=? AND request_id=? FOR UPDATE",userId,requestId);
@@ -142,9 +146,13 @@ public class H5Service {
         List<Order> pending=orders.list(new LambdaQueryWrapper<Order>().eq(Order::getTableId,tableId).eq(Order::getTableSessionCode,sessionCode).eq(Order::getStatus,0).orderByAsc(Order::getCreateTime));
         OrderVO result;
         if(pending.isEmpty()) {
-            OrderCreateDTO dto=new OrderCreateDTO();dto.setTableId(tableId);dto.setPaymentMode(1);dto.setOrderType(0);dto.setRemark(remark);
+            OrderCreateDTO dto=new OrderCreateDTO();dto.setTableId(tableId);dto.setPaymentMode(1);dto.setOrderType(0);dto.setRemark(remark);dto.setGuestCount(guestCount);
             result=orders.createOrder(openid,dto);
         } else {
+            Order bill = pending.get(0);
+            if (guestCount != null && bill.getGuestCount() != null && bill.getGuestCount() > 0 && !guestCount.equals(bill.getGuestCount())) {
+                throw new BusinessException(ResultCode.ORDER_STATUS_ERROR, "本桌人数已由其他顾客确认，请刷新账单后加菜；调整人数请联系前台");
+            }
             result=null;
             for(var item:cart.getItems()) {
                 AddItemDTO dto=new AddItemDTO();dto.setDishId(item.getDishId());dto.setQuantity(item.getQuantity());dto.setRemark(item.getRemark());

@@ -19,14 +19,14 @@ public class H5Controller {
     private final DiningTableService tables;
     public record Entry(@NotBlank @Size(max=50) String tableCode,@NotBlank @Pattern(regexp="[a-f0-9]{64}") String key) {}
     public record Submit(@NotNull Long tableId,@NotBlank @Size(max=64) String sessionCode,
-        @NotBlank @Pattern(regexp="[a-zA-Z0-9-]{16,64}") String requestId,@Size(max=500) String remark) {}
+        @NotBlank @Pattern(regexp="[a-zA-Z0-9-]{16,64}") String requestId,@Size(max=500) String remark,@Min(1) @Max(99) @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.scaffold.modules.order.dto.TablewareCountDeserializer.class) Integer guestCount) {}
     @PostMapping("/app/h5/session")
     public Result<Map<String,Object>> session(HttpServletRequest req,HttpServletResponse res) {
         return Result.success(service.session(req,res));
     }
     @GetMapping("/app/h5/context") public Result<Map<String,Object>> context(){return Result.success(service.context());}
     @PostMapping("/app/h5/join") public Result<DiningTableVO> join(@Valid @RequestBody Entry dto){return Result.success(service.join(dto.tableCode(),dto.key()));}
-    @PostMapping("/app/h5/submit") public Result<OrderVO> submit(@Valid @RequestBody Submit dto){return Result.success(service.submit(dto.tableId(),dto.sessionCode(),dto.requestId(),dto.remark()));}
+    @PostMapping("/app/h5/submit") public Result<OrderVO> submit(@Valid @RequestBody Submit dto){return Result.success(service.submit(dto.tableId(),dto.sessionCode(),dto.requestId(),dto.remark(),dto.guestCount()));}
     @GetMapping("/admin/h5/table-links") @SaCheckPermission("table:qrcode:generate")
     public Result<List<Map<String,Object>>> links(){
         service.enabled();return Result.success(tables.list().stream().map(t->Map.<String,Object>of("id",t.getId(),"code",t.getCode(),"name",t.getName(),"url",service.link(t))).toList());

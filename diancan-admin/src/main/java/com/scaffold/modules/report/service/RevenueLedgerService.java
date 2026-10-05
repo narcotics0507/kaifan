@@ -46,7 +46,7 @@ public class RevenueLedgerService {
     private final OrderItemMapper itemMapper;
     private final PaymentRecordMapper paymentMapper;
     private final OrderOperationLogMapper logMapper;
-    private static final List<String> ADJUSTMENTS = List.of("RETURN", "SHORTAGE_RETURN", "GIFT", "KITCHEN_WAIVE", "DISCOUNT", "REPLACE", "REFUND_ORDER");
+    private static final List<String> ADJUSTMENTS = List.of("RETURN", "SHORTAGE_RETURN", "GIFT", "KITCHEN_WAIVE", "DISCOUNT", "REPLACE", "REFUND_ORDER", "TABLEWARE");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public List<RevenueDailyVO> daily(LocalDate start, LocalDate end) {
@@ -157,6 +157,9 @@ public class RevenueLedgerService {
             row.setAddedAt(item.getAddedAt() == null ? item.getCreateTime() : item.getAddedAt()); bill.getItems().add(row);
             original = original.add(money(item.getPrice()).multiply(BigDecimal.valueOf(item.getQuantity() == null ? 0 : item.getQuantity())));
         }
+        bill.setGuestCount(order.getGuestCount()); bill.setTablewareQuantity(order.getTablewareQuantity());
+        bill.setTablewareUnitPrice(order.getTablewareUnitPrice()); bill.setTablewareAmount(money(order.getTablewareAmount())); bill.setTablewareOwner(order.getTablewareOwner());
+        original = original.add(bill.getTablewareAmount());
         bill.setOriginalAmount(original); bill.setActualAmount(money(order.getActualAmount())); bill.setDiscountAmount(original.subtract(bill.getActualAmount()).max(BigDecimal.ZERO));
         bill.setPaidAmount(money(order.getPaidAmount())); bill.setUnsettledAmount(due(order));
         bill.setDayReceivedAmount(sum(day.getPayments(), bill.getId(), "收款")); bill.setDayRefundAmount(sum(day.getPayments(), bill.getId(), "退款"));
@@ -177,12 +180,13 @@ public class RevenueLedgerService {
     private Adjustment adjustment(OrderOperationLog log, Order order) {
         Adjustment row = new Adjustment(); row.setId(log.getId().toString()); row.setOrderId(order.getId().toString()); row.setOrderNo(order.getOrderNo()); row.setTableCode(order.getTableCode());
         row.setTime(log.getCreateTime()); row.setOperatorName(log.getOperatorName()); row.setReason(log.getReason());
-        row.setKind(switch (log.getOperationType()) { case "SHORTAGE_RETURN" -> "缺菜退掉"; case "RETURN" -> "退菜"; case "GIFT" -> "赠送"; case "KITCHEN_WAIVE" -> "这道菜免单"; case "DISCOUNT" -> "整单折扣"; case "REPLACE" -> "换菜"; case "REFUND_ORDER" -> "整单退款"; default -> log.getOperationType(); });
+        row.setKind(switch (log.getOperationType()) { case "SHORTAGE_RETURN" -> "缺菜退掉"; case "RETURN" -> "退菜"; case "GIFT" -> "赠送"; case "KITCHEN_WAIVE" -> "这道菜免单"; case "DISCOUNT" -> "整单折扣"; case "REPLACE" -> "换菜"; case "REFUND_ORDER" -> "整单退款"; case "TABLEWARE" -> "人数/餐具调整"; default -> log.getOperationType(); });
         try {
             JSONObject data = JSONUtil.parseObj(log.getDetail()); row.setDishName(data.getStr("dishName", data.getStr("oldDish"))); row.setQuantity(data.getInt("quantity", data.getInt("oldQuantity")));
             row.setAmount(switch (log.getOperationType()) { case "GIFT" -> data.getBigDecimal("originalAmount"); case "REFUND_ORDER" -> data.getBigDecimal("refundAmount");
                 case "DISCOUNT" -> data.getBigDecimal("originalAmount") == null || data.getBigDecimal("actualAmount") == null ? null : data.getBigDecimal("originalAmount").subtract(data.getBigDecimal("actualAmount"));
                 default -> data.getBigDecimal("amount"); });
+            if ("TABLEWARE".equals(log.getOperationType())) row.setDescription("人数 " + data.getInt("oldGuestCount") + " → " + data.getInt("guestCount") + "；餐具 " + data.getInt("oldQuantity") + " → " + data.getInt("quantity"));
             if ("REPLACE".equals(log.getOperationType())) row.setDescription(data.getStr("oldDish", "") + " → " + data.getStr("newDish", ""));
         } catch (RuntimeException ignored) { row.setDescription("历史记录格式不完整，金额未记录"); }
         return row;
@@ -203,13 +207,16 @@ public class RevenueLedgerService {
 
     public void export(LocalDate start, LocalDate end, HttpServletResponse response) {
         List<RevenueDailyVO> days = load(start, end, true);
-        List<List<Object>> daily = new ArrayList<>(), bills = new ArrayList<>(), items = new ArrayList<>(), payments = new ArrayList<>(), adjustments = new ArrayList<>();
+        List<List<Object>> daily = new ArrayList<>(), bills = new ArrayList<>(), items = new ArrayList<>(), payments = new ArrayList<>(), adjustments = new ArrayList<>(), tableware = new ArrayList<>();
         Set<String> exportedBills = new HashSet<>();
         for (RevenueDailyVO day : days) {
             daily.add(row(day.getDate(), day.getReceivedAmount(), day.getRefundAmount(), day.getTotalRevenue(), day.getOrderCount(), day.getWechatAmount(), day.getAlipayAmount(), day.getCashAmount(), day.getOtherAmount(), day.getOpenedOrderCount(), day.getUnsettledAmount(), day.getReturnedAmount(), day.getWaivedAmount()));
             for (Bill bill : day.getOrders()) {
-                bills.add(row(day.getDate(), bill.getOrderNo(), bill.getTableCode(), bill.getTableSessionCode(), bill.getCreateTime(), bill.getStatus(), bill.getOriginalAmount(), bill.getDiscountAmount(), bill.getActualAmount(), bill.getPaidAmount(), bill.getUnsettledAmount(), bill.getDayReceivedAmount(), bill.getDayRefundAmount(), bill.getDayNetAmount(), bill.getPaymentMethods(), bill.getRemark()));
-                if (exportedBills.add(bill.getId())) for (Item item : bill.getItems()) items.add(row(bill.getOrderNo(), bill.getTableCode(), item.getAddedAt(), item.getDishName(), item.getPrice(), item.getQuantity(), item.getAmount(), item.getBillingStatus(), item.getRemark()));
+                bills.add(row(day.getDate(), bill.getOrderNo(), bill.getTableCode(), bill.getTableSessionCode(), bill.getCreateTime(), bill.getStatus(), bill.getOriginalAmount(), bill.getDiscountAmount(), bill.getActualAmount(), bill.getPaidAmount(), bill.getUnsettledAmount(), bill.getDayReceivedAmount(), bill.getDayRefundAmount(), bill.getDayNetAmount(), bill.getPaymentMethods(), bill.getRemark(), bill.getGuestCount(), bill.getTablewareQuantity(), bill.getTablewareUnitPrice(), bill.getTablewareAmount()));
+                if (exportedBills.add(bill.getId())) {
+                    if (bill.getGuestCount() != null && bill.getGuestCount() > 0) tableware.add(row(bill.getOrderNo(), bill.getTableCode(), bill.getCreateTime(), bill.getGuestCount(), bill.getTablewareQuantity(), bill.getTablewareUnitPrice(), bill.getTablewareAmount(), bill.getStatus()));
+                    for (Item item : bill.getItems()) items.add(row(bill.getOrderNo(), bill.getTableCode(), item.getAddedAt(), item.getDishName(), item.getPrice(), item.getQuantity(), item.getAmount(), item.getBillingStatus(), item.getRemark()));
+                }
             }
             for (Receipt receipt : day.getPayments()) payments.add(row(receipt.getTime(), receipt.getOrderNo(), receipt.getTableCode(), receipt.getPaymentNo(), receipt.getKind(), receipt.getPaymentMethod(), receipt.getAmount(), receipt.getOperatorName(), receipt.getReason()));
             for (Adjustment a : day.getAdjustments()) adjustments.add(row(a.getTime(), a.getOrderNo(), a.getTableCode(), a.getKind(), a.getDishName(), a.getQuantity(), a.getAmount(), a.getOperatorName(), a.getReason(), a.getDescription()));
@@ -226,11 +233,12 @@ public class RevenueLedgerService {
         response.setHeader("Content-Disposition", "attachment;filename*=UTF-8''" + URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20"));
         try (ExcelWriter writer = EasyExcel.write(response.getOutputStream()).autoCloseStream(false).registerWriteHandler(new SimpleColumnWidthStyleStrategy(22)).registerWriteHandler(new RevenueWorkbookStyle()).build()) {
             sheet(writer, 0, "每日汇总", List.of("日期", "收款金额", "退款金额", "净营业额", "收款订单数", "微信净收款", "支付宝净收款", "现金净收款", "其他净收款", "新开订单数", "当日开单当前待收", "退菜记录金额", "免单赠送记录金额"), daily);
-            sheet(writer, 1, "订单明细", List.of("统计日期", "订单号", "桌号", "桌次", "开单时间", "当前状态", "保留菜品原价合计", "优惠免单合计", "账单应收", "累计已收", "当前待收", "当日收款", "当日退款", "当日净收款", "当日收款方式", "订单备注"), bills);
+            sheet(writer, 1, "订单明细", List.of("统计日期", "订单号", "桌号", "桌次", "开单时间", "当前状态", "保留菜品及餐具原价合计", "优惠免单合计", "账单应收", "累计已收", "当前待收", "当日收款", "当日退款", "当日净收款", "当日收款方式", "订单备注", "用餐人数", "餐具套数", "餐具单价", "餐具费"), bills);
             sheet(writer, 2, "菜品明细", List.of("订单号", "桌号", "点菜时间", "菜名", "单价", "保留数量", "优惠前计费小计", "计费状态", "口味备注"), items);
             sheet(writer, 3, "收款退款流水", List.of("发生时间", "订单号", "桌号", "收款流水号", "类型", "收款方式", "金额", "操作人", "原因"), payments);
             sheet(writer, 4, "退菜免单记录", List.of("操作时间", "订单号", "桌号", "操作", "菜名", "数量", "记录金额", "操作人", "原因", "说明"), adjustments);
-            sheet(writer, 5, "统计说明", List.of("项目", "说明"), List.of(
+            sheet(writer, 5, "餐具明细", List.of("订单号", "桌号", "开单时间", "用餐人数", "餐具套数", "餐具单价", "餐具费", "当前状态"), tableware);
+            sheet(writer, 6, "统计说明", List.of("项目", "说明"), List.of(
                     row("日期范围", start + " 至 " + end + "，北京时间自然日"),
                     row("净营业额", "实际收款减当日整单退款；现金按扣除找零后的入账金额，未收款不算营业额。"),
                     row("收款日期", "当前门店现金、微信/支付宝收款码按实际确认产生的流水时间；跨天开单按收款日入账。"),
@@ -240,6 +248,7 @@ public class RevenueLedgerService {
                     row("菜品明细", "日期范围内开单、收款或发生调整的关联订单，每单导出一次；退掉或换掉的菜另见操作记录。菜品小计未分摊整单折扣。"),
                     row("新开与待收", "新开订单含取消/退款单；待收是这些新开订单当前仍未收齐的金额，不是当时的历史余额。"),
                     row("收款方式", "各方式展示收款减退款后的净额，合计等于净营业额。"),
+                    row("餐具费", "首次确认人数后按1元/套计费，同桌加菜不重复收费，前台调整留痕；历史账单不自动补收，餐具费不参与菜品折扣与免单。"),
                     row("日均营业额", "净营业额除以所选自然日天数，包含零营业日期。")));
         } catch (IOException e) { throw new BusinessException("导出营业明细失败，请重试"); }
     }

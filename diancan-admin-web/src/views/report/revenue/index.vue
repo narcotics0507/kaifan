@@ -63,6 +63,7 @@ const billColumns: DataTableColumns<Api.Business.RevenueBill> = [
   { title: '桌号 / 订单', key: 'orderNo', width: 235, fixed: 'left', render: r => h('div', [h('strong', `${r.tableCode || '无桌号'}桌`), h('div', { class: 'muted order-number' }, r.orderNo)]) },
   { title: '开单时间', key: 'createTime', width: 174, render: r => time(r.createTime) },
   { title: '当前状态', key: 'status', width: 105, render: r => tag(r.status) },
+  { title: '人数 / 餐具', key: 'guestCount', width: 110, render: r => r.guestCount ? `${r.guestCount}人 / ${r.tablewareQuantity}套` : '未记录' },
   { title: '账单应收', key: 'actualAmount', width: 110, align: 'right', render: r => yuan(r.actualAmount) },
   { title: '当日收款', key: 'dayReceivedAmount', width: 110, align: 'right', render: r => yuan(r.dayReceivedAmount) },
   { title: '当日退款', key: 'dayRefundAmount', width: 110, align: 'right', render: r => yuan(r.dayRefundAmount) },
@@ -237,7 +238,8 @@ onMounted(loadData);
       <NDrawerContent v-if="selectedBill" :title="`${selectedBill.tableCode || '无桌号'}桌 · 账单明细`" closable>
         <p class="order-number muted">{{ selectedBill.orderNo }}</p><p class="muted">开单 {{ time(selectedBill.createTime) }} · {{ selectedBill.status }}</p>
         <p class="detail-note">{{ selectedDate }} 收款 {{ yuan(selectedBill.dayReceivedAmount) }} · 退款 {{ yuan(selectedBill.dayRefundAmount) }} · 净收款 {{ yuan(selectedBill.dayNetAmount) }}</p>
-        <div class="bill-amounts"><div><span>保留菜品原价</span><strong>{{ yuan(selectedBill.originalAmount) }}</strong></div><div><span>优惠 / 免单</span><strong>{{ yuan(selectedBill.discountAmount) }}</strong></div><div><span>账单应收</span><strong>{{ yuan(selectedBill.actualAmount) }}</strong></div><div><span>当前待收</span><strong>{{ yuan(selectedBill.unsettledAmount) }}</strong></div></div>
+        <div class="bill-amounts"><div><span>保留菜品及餐具原价</span><strong>{{ yuan(selectedBill.originalAmount) }}</strong></div><div><span>优惠 / 免单</span><strong>{{ yuan(selectedBill.discountAmount) }}</strong></div><div><span>账单应收</span><strong>{{ yuan(selectedBill.actualAmount) }}</strong></div><div><span>当前待收</span><strong>{{ yuan(selectedBill.unsettledAmount) }}</strong></div></div>
+        <p v-if="selectedBill.guestCount" class="detail-note">用餐 {{ selectedBill.guestCount }} 人 · 一次性餐具 {{ selectedBill.tablewareQuantity }} 套 × {{ yuan(selectedBill.tablewareUnitPrice) }} = {{ yuan(selectedBill.tablewareAmount) }}</p>
         <h3>菜品明细</h3><p class="muted detail-note">显示当前保留的菜品和加菜时间；小计未分摊整单折扣，退掉或换掉的菜见下方操作记录。</p>
         <NDataTable :columns="itemColumns" :data="selectedBill.items" :row-key="rowKey" :scroll-x="824" />
         <p v-if="selectedBill.remark" class="detail-note">订单备注：{{ selectedBill.remark }}</p>

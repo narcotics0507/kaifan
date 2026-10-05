@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OrderTableware from '@/components/business/order-tableware.vue';
 import ReturnedOrderItems from '@/components/business/returned-order-items.vue';
 import { useAppStore } from '@/store/modules/app';
 import MobileOrderItems from '@/components/business/mobile-order-items.vue';
@@ -48,7 +49,7 @@ const itemColumns: DataTableColumns<Api.Business.OrderItem> = [
 ];
 
 const logColumns: DataTableColumns<Api.Business.OrderOperationLog> = [
-  { title: '操作类型', key: 'operationType', width: 100, render(row) { return ({RETURN:'退菜',REPLACE:'换菜',SHORTAGE_RETURN:'缺菜退掉',KITCHEN_WAIVE:'后厨免单',TICKET_ORDER:'点菜单',TICKET_ADD:'加菜单',TICKET_CHANGE:'厨房变更通知',TICKET_REPRINT:'补打结账单'} as Record<string,string>)[row.operationType] || row.operationType; } },
+  { title: '操作类型', key: 'operationType', width: 100, render(row) { return ({TABLEWARE:'人数/餐具调整',RETURN:'退菜',REPLACE:'换菜',SHORTAGE_RETURN:'缺菜退掉',KITCHEN_WAIVE:'后厨免单',TICKET_ORDER:'点菜单',TICKET_ADD:'加菜单',TICKET_CHANGE:'厨房变更通知',TICKET_REPRINT:'补打结账单'} as Record<string,string>)[row.operationType] || row.operationType; } },
   { title: '操作人', key: 'operatorName', width: 100 },
   { title: '原因', key: 'reason', width: 150, render(row) { return row.reason || '-'; } },
   { title: '详情', key: 'detail', width: 200, render(row) { return row.detail || '-'; } },
@@ -116,6 +117,7 @@ onMounted(() => { loadData(); });
             整单退款
           </NButton>
         </template>
+        <OrderTableware :order="order" />
         <NDescriptions :column="appStore.isMobile ? 1 : 3" label-placement="left">
           <NDescriptionsItem label="订单编号">{{ order.orderNo }}</NDescriptionsItem>
           <NDescriptionsItem label="桌台">{{ order.tableCode }}</NDescriptionsItem>

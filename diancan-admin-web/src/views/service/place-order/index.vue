@@ -4,7 +4,7 @@ import { useAppStore } from '@/store/modules/app';
 import { useResizeObserver } from '@vueuse/core';
 import { computed, nextTick, onActivated, onMounted, onUnmounted, ref } from 'vue';
 import {
-  NCard, NSpace, NButton, NInput, NSelect,
+  NCard, NSpace, NButton, NInput, NInputNumber, NSelect,
   NTag, NSpin, NEmpty, NModal, NList, NListItem, NThing, NImage,
   NCheckbox,
   NDivider, useMessage
@@ -47,6 +47,7 @@ useResizeObserver(pageRoot, updatePageHeight);
 // ==================== 桌台选择 ====================
 const tables = ref<Api.Business.DiningTable[]>([]);
 const selectedTableId = ref<number | null>(null);
+const guestCount = ref<number | null>(null);
 
 const tableOptions = computed<SelectOption[]>(() =>
   tables.value.map(t => ({
@@ -82,6 +83,7 @@ function chooseTable(id: number) {
     showTableSwitch.value = true;
     return;
   }
+  if (selectedTableId.value !== id) guestCount.value = null;
   selectedTableId.value = id;
   showTablePicker.value = false;
   if (pendingDish.value) {
@@ -100,6 +102,7 @@ function confirmTableSwitch() {
   }
   clearCart();
   preOrderMode.value = false;
+  guestCount.value = null;
   selectedTableId.value = nextTable.id;
   pendingTableId.value = null;
   showTableSwitch.value = false;
@@ -363,12 +366,14 @@ async function submitOrder() {
     return;
   }
   if (selectedTableHasActiveOrder.value) { await submitAddition(); return; }
+  if (!Number.isInteger(guestCount.value) || !guestCount.value || guestCount.value < 1 || guestCount.value > 99) { message.warning('请确认本桌用餐人数'); return; }
   submitting.value = true;
   try {
     const table = selectedTable.value;
     const clientOrderNo = generateClientOrderNo();
     const payload: Api.Business.AdminOrderCreate = {
       tableId: selectedTableId.value,
+      guestCount: guestCount.value!,
       tableCode: table?.code,
       clientOrderNo,
       items: cart.value.map(c => ({ dishId: c.dishId, quantity: c.quantity, remark: c.remark || undefined })),
@@ -598,6 +603,8 @@ useMerchantOverlays(showCartModal, showTablePicker, showTableSwitch, showSubmitC
     </NModal>
     <NModal v-model:show="showSubmitConfirm" preset="card" title="最后核对桌台" :trap-focus="!appStore.isMobile" :mask-closable="!submitting" :close-on-esc="!submitting" :closable="!submitting" style="width:440px">
       <div class="table-submit-summary"><strong>{{ selectedTable?.code }} 桌</strong><span>{{ selectedTableHasActiveOrder ? '给原账单加菜' : preOrderMode ? '保存预订单' : '首次下单' }}</span><p>本次 {{ cartCount }} 份菜 · 合计 ¥{{ cartTotalText }}</p></div>
+      <div v-if="!selectedTableHasActiveOrder" class="tableware-confirm"><label>本桌用餐人数<NInputNumber v-model:value="guestCount" :min="1" :max="99" :precision="0" placeholder="请填写人数" /></label><p>每人一套餐具，1元/套 · 餐具费 ¥{{ (guestCount || 0).toFixed(2) }}</p><strong>本次含餐具合计 ¥{{ (Number(cartTotalText) + (guestCount || 0)).toFixed(2) }}</strong></div>
+      <p v-else>给原账单加菜，餐具费不重复收取。</p>
       <NSpace justify="end">
         <NButton :disabled="submitting" @click="showSubmitConfirm = false">返回核对</NButton>
         <NButton type="primary" :loading="submitting" @click="submitOrder">确认提交到 {{ selectedTable?.code }} 桌</NButton>

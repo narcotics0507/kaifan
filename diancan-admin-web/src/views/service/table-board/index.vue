@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OrderTableware from '@/components/business/order-tableware.vue';
 import { useOrderAdjustments } from '@/hooks/business/order-adjustments';
 import ReturnedOrderItems from '@/components/business/returned-order-items.vue';
 import { useMerchantOverlays } from '@/hooks/business/merchant-overlays';
@@ -201,6 +202,7 @@ interface DrawerCartItem {
   remark: string;
 }
 
+const guestCount = ref<number | null>(null);
 const quickOrderForm = ref({ dishId: null as Api.Business.IdType | null });
 const quickAddForm = ref({ dishId: null as Api.Business.IdType | null });
 const quickOrderCart = ref<DrawerCartItem[]>([]);
@@ -282,6 +284,7 @@ function isSameId(left: Api.Business.IdType | null | undefined, right: Api.Busin
 }
 
 function resetQuickForms() {
+  guestCount.value = null;
   quickOrderForm.value = { dishId: null };
   quickAddForm.value = { dishId: null };
   drawerDishKeyword.value = '';
@@ -480,10 +483,12 @@ async function handleQuickPlaceOrder() {
     message.warning('请先加入菜品');
     return;
   }
+  if (!Number.isInteger(guestCount.value) || !guestCount.value || guestCount.value < 1 || guestCount.value > 99) { message.warning('请确认本桌用餐人数'); return; }
   actionLoading.value = true;
   try {
     const { error } = await createAdminOrder({
       tableId: selectedTable.value.id,
+      guestCount: guestCount.value!,
       tableCode: selectedTable.value.code,
       items: quickOrderCart.value.map(item => ({
         dishId: item.dishId,
@@ -797,7 +802,7 @@ useMerchantOverlays(showOrderDrawer);
                         </div>
                         <div class="table-name">{{ getTableDisplayName(t) }}</div>
                         <div class="table-meta">
-                          <span>{{ t.capacity }}人位</span>
+                          <span>{{ t.guestCount ? `${t.guestCount}人 · ${t.tablewareQuantity || 0}套餐具` : `${t.capacity}人位` }}</span>
                         </div>
                       </div>
                     </div>
@@ -838,7 +843,7 @@ useMerchantOverlays(showOrderDrawer);
                           </div>
                           <div class="table-name">{{ getTableDisplayName(t) }}</div>
                           <div class="table-meta">
-                            <span>{{ t.capacity }}人位</span>
+                            <span>{{ t.guestCount ? `${t.guestCount}人 · ${t.tablewareQuantity || 0}套餐具` : `${t.capacity}人位` }}</span>
                           </div>
                           <div class="table-action">点击进入桌台操作</div>
                         </div>
@@ -967,6 +972,7 @@ useMerchantOverlays(showOrderDrawer);
                       <NDescriptionsItem label="下单时间" :span="2">{{ previewOrder.createTime }}</NDescriptionsItem>
                     </NDescriptions>
 
+                    <OrderTableware v-if="currentOrderDetail" :order="currentOrderDetail" editable @updated="refreshDrawerData" />
                     <ReturnedOrderItems :order-id="previewOrder.id" :items="previewOrder.returnedItems"/>
                     <div v-if="previewOrder.items?.length" class="drawer-order-items">
                       <div class="drawer-order-items__title">本单菜品</div>
@@ -997,6 +1003,7 @@ useMerchantOverlays(showOrderDrawer);
             </template>
 
             <template v-else-if="drawerMode === 'order'">
+              <div v-if="selectedTable?.status === 0" class="drawer-tableware-confirm"><label>本桌用餐人数<NInputNumber v-model:value="guestCount" :min="1" :max="99" :precision="0" placeholder="请填写人数" /></label><p>每人一套餐具，1元/套 · 餐具费 ¥{{ (guestCount || 0).toFixed(2) }}</p></div>
               <section v-if="showDraftCart" class="drawer-selected-view">
                 <div class="drawer-selected-head">
                   <h2>本次待提交清单</h2>
@@ -1188,6 +1195,9 @@ useMerchantOverlays(showOrderDrawer);
 </template>
 
 <style scoped>
+.drawer-tableware-confirm { padding:12px; margin:12px 0; border-radius:12px; background:rgba(169,77,36,.05); }
+.drawer-tableware-confirm label { display:block; }
+.drawer-tableware-confirm p { font-size:12px; margin:8px 0 0; }
 .board-hero__head {
   display: flex;
   align-items: flex-end;

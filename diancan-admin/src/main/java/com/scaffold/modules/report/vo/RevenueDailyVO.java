@@ -34,6 +34,11 @@ public class RevenueDailyVO {
         private String tableSessionCode;
         private LocalDateTime createTime;
         private String status;
+        private Integer guestCount;
+        private Integer tablewareQuantity;
+        private BigDecimal tablewareUnitPrice;
+        private BigDecimal tablewareAmount;
+        private Integer tablewareOwner;
         private BigDecimal originalAmount;
         private BigDecimal discountAmount;
         private BigDecimal actualAmount;

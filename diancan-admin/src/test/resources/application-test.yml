@@ -32,3 +32,8 @@ coupon:
   grant:
     mq:
       enabled: false
+
+# Earlier monetary fixtures describe orders before the tableware rollout.
+restaurant:
+  tableware:
+    require-guest-count: false

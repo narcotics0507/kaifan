@@ -1,0 +1,21 @@
+-- Existing bills retain zero tableware charge; only newly confirmed visits are charged.
+SET @tableware_ddl = IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='order' AND column_name='guest_count'), 'SELECT 1', 'ALTER TABLE `order` ADD COLUMN `guest_count` INT NOT NULL DEFAULT 0');
+PREPARE tableware_stmt FROM @tableware_ddl;
+EXECUTE tableware_stmt;
+DEALLOCATE PREPARE tableware_stmt;
+SET @tableware_ddl = IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='order' AND column_name='tableware_quantity'), 'SELECT 1', 'ALTER TABLE `order` ADD COLUMN `tableware_quantity` INT NOT NULL DEFAULT 0');
+PREPARE tableware_stmt FROM @tableware_ddl;
+EXECUTE tableware_stmt;
+DEALLOCATE PREPARE tableware_stmt;
+SET @tableware_ddl = IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='order' AND column_name='tableware_unit_price'), 'SELECT 1', 'ALTER TABLE `order` ADD COLUMN `tableware_unit_price` DECIMAL(10,2) NOT NULL DEFAULT 1.00');
+PREPARE tableware_stmt FROM @tableware_ddl;
+EXECUTE tableware_stmt;
+DEALLOCATE PREPARE tableware_stmt;
+SET @tableware_ddl = IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='order' AND column_name='tableware_amount'), 'SELECT 1', 'ALTER TABLE `order` ADD COLUMN `tableware_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00');
+PREPARE tableware_stmt FROM @tableware_ddl;
+EXECUTE tableware_stmt;
+DEALLOCATE PREPARE tableware_stmt;
+SET @tableware_ddl = IF(EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='order' AND column_name='tableware_owner'), 'SELECT 1', 'ALTER TABLE `order` ADD COLUMN `tableware_owner` TINYINT NOT NULL DEFAULT 0');
+PREPARE tableware_stmt FROM @tableware_ddl;
+EXECUTE tableware_stmt;
+DEALLOCATE PREPARE tableware_stmt;

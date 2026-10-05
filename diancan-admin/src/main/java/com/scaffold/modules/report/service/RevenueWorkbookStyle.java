@@ -14,8 +14,8 @@ import java.util.Set;
 public class RevenueWorkbookStyle implements CellWriteHandler, SheetWriteHandler {
     private final Map<Integer, Set<Integer>> moneyColumns = Map.of(
             0, Set.of(1, 2, 3, 5, 6, 7, 8, 10, 11, 12),
-            1, Set.of(6, 7, 8, 9, 10, 11, 12, 13),
-            2, Set.of(4, 6), 3, Set.of(6), 4, Set.of(6));
+            1, Set.of(6, 7, 8, 9, 10, 11, 12, 13, 18, 19),
+            2, Set.of(4, 6), 3, Set.of(6), 4, Set.of(6), 5, Set.of(5, 6));
     private final Map<Short, CellStyle> styles = new HashMap<>();
 
     @Override

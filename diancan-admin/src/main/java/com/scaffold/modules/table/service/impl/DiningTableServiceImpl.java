@@ -119,9 +119,9 @@ public class DiningTableServiceImpl extends ServiceImpl<DiningTableMapper, Dinin
         LambdaQueryWrapper<DiningTable> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByAsc(DiningTable::getCode);
         List<DiningTable> tables = list(wrapper);
-        return tables.stream()
-                .map(this::toVO)
-                .toList();
+        List<DiningTableVO> result = tables.stream().map(table -> toVO(table, false)).toList();
+        fillTableware(result);
+        return result;
     }
 
     @Override
@@ -700,10 +700,27 @@ public class DiningTableServiceImpl extends ServiceImpl<DiningTableMapper, Dinin
     /**
      * 将 DiningTable 实体转换为 DiningTableVO
      */
-    private DiningTableVO toVO(DiningTable table) {
+    private DiningTableVO toVO(DiningTable table) { return toVO(table, true); }
+
+    private void fillTableware(List<DiningTableVO> tables) {
+        List<String> sessions = tables.stream().filter(t -> Integer.valueOf(1).equals(t.getStatus()) && StrUtil.isNotBlank(t.getCurrentSessionCode()))
+                .map(DiningTableVO::getCurrentSessionCode).toList();
+        if (sessions.isEmpty()) return;
+        List<Order> owners = orderMapper.selectList(new LambdaQueryWrapper<Order>().in(Order::getTableSessionCode, sessions)
+                .eq(Order::getTablewareOwner, 1).in(Order::getStatus, 0, 1));
+        for (DiningTableVO table : tables) for (Order order : owners) {
+            if (Integer.valueOf(1).equals(table.getStatus()) && table.getId().equals(order.getTableId())
+                    && table.getCurrentSessionCode().equals(order.getTableSessionCode())) {
+                table.setGuestCount(order.getGuestCount()); table.setTablewareQuantity(order.getTablewareQuantity()); table.setTablewareAmount(order.getTablewareAmount());
+            }
+        }
+    }
+
+    private DiningTableVO toVO(DiningTable table, boolean includeTableware) {
         ensureCurrentSessionCode(table, false);
         DiningTableVO vo = BeanUtil.copyProperties(table, DiningTableVO.class);
         vo.setQrCodeUrl(minioStorageService.resolveAccessUrl(table.getQrCodeUrl()));
+        if (includeTableware) fillTableware(List.of(vo));
         return vo;
     }
 

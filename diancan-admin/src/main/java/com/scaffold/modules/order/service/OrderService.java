@@ -23,6 +23,8 @@ import java.util.List;
  * @author Henfon
  */
 public interface OrderService extends IService<Order> {
+
+    OrderVO updateTableware(Long orderId, com.scaffold.modules.order.dto.TablewareUpdateDTO dto);
     OrderVO shortageReturn(Long itemId, com.scaffold.modules.order.dto.ShortageReturnDTO dto);
 
     /**

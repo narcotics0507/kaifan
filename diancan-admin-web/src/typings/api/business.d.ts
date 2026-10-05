@@ -128,6 +128,9 @@ declare namespace Api {
 
     // ==================== 桌台 ====================
     interface DiningTable {
+      guestCount?: number;
+      tablewareQuantity?: number;
+      tablewareAmount?: number;
       id: number;
       code: string;
       name: string;
@@ -210,6 +213,12 @@ declare namespace Api {
     }
 
     interface Order {
+      guestCount: number;
+      tablewareQuantity: number;
+      tablewareUnitPrice: number;
+      tablewareAmount: number;
+      tablewareOwner: number;
+
       id: IdType;
       orderNo: string;
       tableId: IdType;
@@ -284,6 +293,12 @@ declare namespace Api {
       adjustments: RevenueAdjustment[];
     }
     interface RevenueBill {
+      guestCount: number;
+      tablewareQuantity: number;
+      tablewareUnitPrice: number;
+      tablewareAmount: number;
+      tablewareOwner: number;
+
       id: string;
       orderNo: string;
       tableCode: string;
@@ -480,6 +495,7 @@ declare namespace Api {
 
     /** 管理端下单请求 */
     interface AdminOrderCreate {
+      guestCount?: number;
       tableId: number;
       tableCode?: string;
       clientOrderNo?: string;

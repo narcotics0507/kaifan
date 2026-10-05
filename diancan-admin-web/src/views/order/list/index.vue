@@ -44,6 +44,8 @@ const columns: DataTableColumns<Api.Business.Order> = [
   { title: '订单编号', key: 'orderNo', width: 180 },
   { title: '桌台', key: 'tableCode', width: 80 },
   { title: '区域', key: 'areaName', width: 100, render(row) { return row.areaName || '未分区'; } },
+  { title: '人数 / 餐具', key: 'guestCount', width: 115, render: row => row.guestCount ? `${row.guestCount}人 / ${row.tablewareQuantity}套` : '未记录' },
+  { title: '餐具费', key: 'tablewareAmount', width: 90, render: row => `¥${Number(row.tablewareAmount || 0).toFixed(2)}` },
   { title: '原价', key: 'originalAmount', width: 90, render(row) { return `¥${row.originalAmount}`; } },
   { title: '折扣', key: 'discountRate', width: 70, render(row) { return row.discountRate ? `${row.discountRate}折` : '-'; } },
   { title: '订单金额', key: 'actualAmount', width: 90, render(row) { return `¥${row.actualAmount}`; } },

@@ -16,3 +16,8 @@ export function fetchOrderDetail(id: Api.Business.IdType) {
     method: 'get'
   });
 }
+
+/** 人数与餐具仅由商家在收款前调整，服务端固定单价并保留审计。 */
+export function updateOrderTableware(id: Api.Business.IdType, data: { guestCount: number; quantity: number; reason: string; requestId: string }) {
+  return request<Api.Business.Order>({ url: `/admin/order/${id}/tableware`, method: 'put', data });
+}

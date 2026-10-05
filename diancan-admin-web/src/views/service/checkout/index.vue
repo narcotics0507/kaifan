@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useOrderAdjustments } from '@/hooks/business/order-adjustments';
+import OrderTableware from '@/components/business/order-tableware.vue';
 import ReturnedOrderItems from '@/components/business/returned-order-items.vue';
 import { useAppStore } from '@/store/modules/app';
 import MobileOrderItems from '@/components/business/mobile-order-items.vue';
@@ -486,6 +487,7 @@ useOrderAdjustments(msg=>!!selectedOrder.value&&String(selectedOrder.value.id)==
           <ReturnedOrderItems :order-id="selectedOrder.id" :items="selectedOrder.returnedItems"/>
 
           <!-- 金额汇总 -->
+          <OrderTableware :order="selectedOrder" editable @updated="selectOrder(selectedOrder.id); loadOrders()" />
           <NDescriptions :column="appStore.isMobile ? 1 : 3" label-placement="left" size="small">
             <NDescriptionsItem label="原价">¥{{ selectedOrder.originalAmount?.toFixed(2) }}</NDescriptionsItem>
             <NDescriptionsItem label="折扣">{{ (selectedOrder.discountRate * 10).toFixed(1) }}折</NDescriptionsItem>

@@ -33,6 +33,11 @@ public class OrderCreateDTO implements Serializable {
     @Schema(description = "订单备注")
     private String remark;
 
+    @jakarta.validation.constraints.Min(1)
+    @jakarta.validation.constraints.Max(99)
+    @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = TablewareCountDeserializer.class)
+    private Integer guestCount;
+
     @Schema(description = "用户优惠券ID")
     private Long couponId;
 

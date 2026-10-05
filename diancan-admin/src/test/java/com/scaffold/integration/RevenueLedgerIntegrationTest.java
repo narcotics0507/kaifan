@@ -118,7 +118,7 @@ class RevenueLedgerIntegrationTest {
         MockHttpServletResponse response = new MockHttpServletResponse(); ledger.export(DAY, DAY.plusDays(1), response);
         assertTrue(response.getHeader("Content-Disposition").contains("filename*=UTF-8"));
         try (XSSFWorkbook book = new XSSFWorkbook(new ByteArrayInputStream(response.getContentAsByteArray()))) {
-            assertEquals(6, book.getNumberOfSheets()); assertNotNull(book.getSheet("退菜免单记录")); assertNotNull(book.getSheet("统计说明"));
+            assertEquals(7, book.getNumberOfSheets()); assertNotNull(book.getSheet("退菜免单记录")); assertNotNull(book.getSheet("统计说明"));
             var daily = book.getSheet("每日汇总"); assertEquals(4, daily.getPhysicalNumberOfRows());
             assertEquals(20.10, daily.getRow(1).getCell(3).getNumericCellValue(), .001); assertEquals(15.15, daily.getRow(2).getCell(3).getNumericCellValue(), .001);
             assertEquals("合计", daily.getRow(3).getCell(0).getStringCellValue());

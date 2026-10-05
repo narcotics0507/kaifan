@@ -60,6 +60,12 @@ public class AdminOrderController {
         return Result.success(orderService.addItem(id, dto));
     }
 
+    @Operation(summary = "调整本桌人数与餐具套数")
+    @PutMapping("/{id}/tableware")
+    public Result<OrderVO> updateTableware(@PathVariable Long id, @Valid @RequestBody com.scaffold.modules.order.dto.TablewareUpdateDTO dto) {
+        return Result.success(orderService.updateTableware(id, dto));
+    }
+
     @Operation(summary = "催单")
     @PostMapping("/{id}/rush/{itemId}")
     public Result<Void> rushItem(@PathVariable Long id, @PathVariable Long itemId) {
