@@ -7,4 +7,4 @@ release=${1:?Pass a saved release directory name}
 exec 9>"$root/backups/.backup.lock";flock -w 300 9
 ln -s "$root/releases/$release" "$root/current.github-next"
 mv -Tf "$root/current.github-next" "$root/current"
-docker compose --env-file "$root/config/private.env" -f "$root/compose.yaml" up -d --force-recreate backend web
+docker compose --env-file "$root/config/private.env" -f "$root/compose.yaml" up -d --no-deps --force-recreate backend web

@@ -76,9 +76,9 @@ rollback() {
  echo 'Release did not become healthy; restoring previous code.' >&2
  ln -s "$previous" "$root/current.github-next"
  mv -Tf "$root/current.github-next" "$root/current"
- "${dc[@]}" up -d --force-recreate backend web >/dev/null
+ "${dc[@]}" up -d --no-deps --force-recreate backend web >/dev/null
 }
-if ! "${dc[@]}" up -d --force-recreate backend web >/dev/null; then rollback; exit 1; fi
+if ! "${dc[@]}" up -d --no-deps --force-recreate backend web >/dev/null; then rollback; exit 1; fi
 healthy=false
 for attempt in $(seq 1 36); do
  if docker exec kaifan-backend-1 sh -c 'curl -fsS http://127.0.0.1:8080/api/app/dish/category/list' 2>/dev/null | python3 -c 'import json,sys;raise SystemExit(0 if json.load(sys.stdin).get("code")==200 else 1)' 2>/dev/null; then
