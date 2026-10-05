@@ -11,6 +11,16 @@ export function fetchRevenue(params: { dimension?: string; startDate: string; en
   });
 }
 
+/** 按实际收款日查看每日汇总 */
+export function fetchRevenueDaily(params: { startDate: string; endDate: string }) {
+  return request<Api.Business.RevenueDaily[]>({ url: '/admin/report/revenue/daily', method: 'get', params });
+}
+
+/** 单日账单、菜品、收款及调整记录 */
+export function fetchRevenueDetail(date: string) {
+  return request<Api.Business.RevenueDaily>({ url: '/admin/report/revenue/detail', method: 'get', params: { date } });
+}
+
 /** 首页经营概览 */
 export function fetchDashboardOverview() {
   return request<Api.Business.DashboardOverview>({

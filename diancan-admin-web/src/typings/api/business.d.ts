@@ -268,6 +268,79 @@ declare namespace Api {
       orderCount: number;
     }
 
+    interface RevenueDaily extends Revenue {
+      receivedAmount: number;
+      refundAmount: number;
+      wechatAmount: number;
+      alipayAmount: number;
+      cashAmount: number;
+      otherAmount: number;
+      openedOrderCount: number;
+      unsettledAmount: number;
+      returnedAmount: number;
+      waivedAmount: number;
+      orders: RevenueBill[];
+      payments: RevenueReceipt[];
+      adjustments: RevenueAdjustment[];
+    }
+    interface RevenueBill {
+      id: string;
+      orderNo: string;
+      tableCode: string;
+      tableSessionCode: string;
+      createTime: string;
+      status: string;
+      originalAmount: number;
+      discountAmount: number;
+      actualAmount: number;
+      paidAmount: number;
+      unsettledAmount: number;
+      dayReceivedAmount: number;
+      dayRefundAmount: number;
+      dayNetAmount: number;
+      paymentMethods: string;
+      remark: string | null;
+      items: RevenueItem[];
+      adjustments: RevenueAdjustment[];
+    }
+    interface RevenueItem {
+      id: string;
+      dishName: string;
+      price: number;
+      quantity: number;
+      amount: number;
+      billingStatus: string;
+      remark: string | null;
+      addedAt: string;
+    }
+    interface RevenueReceipt {
+      id: string;
+      orderId: string;
+      orderNo: string;
+      tableCode: string;
+      paymentNo: string;
+      time: string;
+      kind: string;
+      paymentMethod: string;
+      amount: number;
+      operatorName: string | null;
+      reason: string | null;
+    }
+    interface RevenueAdjustment {
+      id: string;
+      orderId: string;
+      orderNo: string;
+      tableCode: string;
+      time: string;
+      kind: string;
+      dishName: string | null;
+      quantity: number | null;
+      amount: number | null;
+      operatorName: string | null;
+      reason: string | null;
+      description: string | null;
+    }
+
     interface DishRanking {
       dishId: number;
       dishName: string;

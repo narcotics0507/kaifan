@@ -1,13 +1,12 @@
 package com.scaffold.modules.report.service.impl;
 
-import com.alibaba.excel.EasyExcel;
-import com.alibaba.excel.annotation.ExcelProperty;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.scaffold.modules.order.entity.Order;
 import com.scaffold.modules.order.entity.OrderItem;
 import com.scaffold.modules.order.mapper.OrderItemMapper;
 import com.scaffold.modules.order.mapper.OrderMapper;
 import com.scaffold.modules.report.service.ReportService;
+import com.scaffold.modules.report.service.RevenueLedgerService;
 import com.scaffold.modules.report.vo.DashboardAlertVO;
 import com.scaffold.modules.report.vo.DashboardOverviewVO;
 import com.scaffold.modules.report.vo.DashboardSessionMetricVO;
@@ -19,21 +18,16 @@ import com.scaffold.modules.system.service.SysConfigService;
 import com.scaffold.modules.table.entity.DiningTable;
 import com.scaffold.modules.table.mapper.DiningTableMapper;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
-import java.time.temporal.IsoFields;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -56,6 +50,7 @@ public class ReportServiceImpl implements ReportService {
     private static final LocalTime DEFAULT_DINNER_START = LocalTime.of(15, 0);
     private static final LocalTime DEFAULT_DINNER_END = LocalTime.of(23, 59, 59);
 
+    private final RevenueLedgerService revenueLedgerService;
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
     private final DiningTableMapper diningTableMapper;
@@ -63,29 +58,7 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public List<RevenueVO> getRevenue(String dimension, LocalDate startDate, LocalDate endDate) {
-        // 查询时间范围内的已支付订单
-        List<Order> paidOrders = queryPaidOrders(startDate, endDate);
-
-        // 按维度分组统计
-        Map<String, List<Order>> grouped = paidOrders.stream()
-                .collect(Collectors.groupingBy(order -> extractDateKey(order.getCreateTime(), dimension),
-                        LinkedHashMap::new, Collectors.toList()));
-
-        List<RevenueVO> result = new ArrayList<>();
-        for (Map.Entry<String, List<Order>> entry : grouped.entrySet()) {
-            RevenueVO vo = new RevenueVO();
-            vo.setDate(entry.getKey());
-            vo.setOrderCount(entry.getValue().size());
-            vo.setTotalRevenue(entry.getValue().stream()
-                    .map(Order::getActualAmount)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add));
-            result.add(vo);
-        }
-
-        // 按日期排序
-        result.sort(Comparator.comparing(RevenueVO::getDate));
-        return result;
+        return revenueLedgerService.trend(dimension, startDate, endDate);
     }
 
     @Override
@@ -210,30 +183,7 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public void exportRevenue(String dimension, LocalDate startDate, LocalDate endDate, HttpServletResponse response) {
-        List<RevenueVO> revenueList = getRevenue(dimension, startDate, endDate);
-
-        // 转换为 Excel 导出数据
-        List<RevenueExcelData> excelData = revenueList.stream().map(vo -> {
-            RevenueExcelData data = new RevenueExcelData();
-            data.setDate(vo.getDate());
-            data.setTotalRevenue(vo.getTotalRevenue());
-            data.setOrderCount(vo.getOrderCount());
-            return data;
-        }).toList();
-
-        try {
-            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            response.setCharacterEncoding("utf-8");
-            String fileName = URLEncoder.encode("营业额报表", StandardCharsets.UTF_8).replaceAll("\\+", "%20");
-            response.setHeader("Content-Disposition", "attachment;filename=" + fileName + ".xlsx");
-
-            EasyExcel.write(response.getOutputStream(), RevenueExcelData.class)
-                    .sheet("营业额统计")
-                    .doWrite(excelData);
-        } catch (IOException e) {
-            log.error("导出营业额报表失败", e);
-            throw new RuntimeException("导出报表失败", e);
-        }
+        revenueLedgerService.export(startDate, endDate, response);
     }
 
     // ==================== 私有方法 ====================
@@ -646,34 +596,4 @@ public class ReportServiceImpl implements ReportService {
         return orderMapper.selectList(wrapper);
     }
 
-    /**
-     * 根据维度提取日期分组 key
-     */
-    private String extractDateKey(LocalDateTime dateTime, String dimension) {
-        return switch (dimension) {
-            case "week" -> {
-                int year = dateTime.getYear();
-                int week = dateTime.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
-                yield year + "-W" + String.format("%02d", week);
-            }
-            case "month" -> dateTime.getYear() + "-" + String.format("%02d", dateTime.getMonthValue());
-            default -> dateTime.toLocalDate().toString(); // day
-        };
-    }
-
-    /**
-     * 营业额 Excel 导出数据模型
-     */
-    @Data
-    public static class RevenueExcelData {
-
-        @ExcelProperty("日期")
-        private String date;
-
-        @ExcelProperty("总营业额")
-        private BigDecimal totalRevenue;
-
-        @ExcelProperty("订单数")
-        private Integer orderCount;
-    }
 }

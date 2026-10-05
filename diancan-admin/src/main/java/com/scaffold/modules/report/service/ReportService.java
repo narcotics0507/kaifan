@@ -17,7 +17,7 @@ import java.util.List;
 public interface ReportService {
 
     /**
-     * 营业额统计（日/周/月维度，汇总已支付订单 actualAmount）
+     * 营业额统计（日/周/月维度，按实际收款日汇总收款减退款）
      *
      * @param dimension 维度：day/week/month
      * @param startDate 开始日期

@@ -2,6 +2,8 @@ package com.scaffold.modules.report.controller;
 
 import com.scaffold.common.result.Result;
 import com.scaffold.modules.report.service.ReportService;
+import com.scaffold.modules.report.service.RevenueLedgerService;
+import com.scaffold.modules.report.vo.RevenueDailyVO;
 import com.scaffold.modules.report.vo.DishRankingVO;
 import com.scaffold.modules.report.vo.DashboardOverviewVO;
 import com.scaffold.modules.report.vo.RevenueVO;
@@ -29,6 +31,7 @@ import java.util.List;
 public class AdminReportController {
 
     private final ReportService reportService;
+    private final RevenueLedgerService revenueLedgerService;
 
     /**
      * @author Henfon
@@ -49,6 +52,20 @@ public class AdminReportController {
             @Parameter(description = "开始日期") @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
             @Parameter(description = "结束日期") @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
         return Result.success(reportService.getRevenue(dimension, startDate, endDate));
+    }
+
+    @Operation(summary = "每日收款及账单汇总")
+    @GetMapping("/revenue/daily")
+    public Result<List<RevenueDailyVO>> daily(
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
+        return Result.success(revenueLedgerService.daily(startDate, endDate));
+    }
+
+    @Operation(summary = "单日订单、菜品、收款及调整明细")
+    @GetMapping("/revenue/detail")
+    public Result<RevenueDailyVO> detail(@RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date) {
+        return Result.success(revenueLedgerService.detail(date));
     }
 
     @Operation(summary = "菜品销售排行")
