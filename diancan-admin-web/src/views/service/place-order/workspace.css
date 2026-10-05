@@ -1,0 +1,109 @@
+.service-place-order-page{min-height:0!important;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:10px}
+.waiter-workspace-shell{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+.order-toolbar{flex-shrink:0;background:var(--restaurant-paper,#fffdf9)!important;border:1px solid var(--restaurant-line,#e9e2d9);border-radius:12px}
+.order-toolbar :deep(.n-card__content){padding:12px 14px}
+.place-order-tools{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.selected-table-reminder{display:inline-flex;align-items:center;min-height:40px;padding:6px 10px;border-radius:9px;background:#f3e4d5;color:#93401c;font-size:.875rem;white-space:nowrap}
+.select-table-prompt{min-height:44px}
+.waiter-workspace{flex:1;min-height:0;display:grid;grid-template-columns:108px minmax(0,1fr) 310px;gap:12px;overflow:hidden}
+.waiter-category-panel{min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding:12px 8px;background:var(--restaurant-paper,#fffdf9);border:1px solid var(--restaurant-line,#e9e2d9);border-radius:12px}
+.waiter-category-panel h3{margin:0 0 6px;padding:0 6px;font-size:.875rem;color:var(--restaurant-muted,#72665c)}
+.waiter-category-panel button{flex-shrink:0;min-height:44px;border:0;border-radius:9px;padding:8px;font:inherit;font-size:.875rem;text-align:left;background:transparent;color:var(--restaurant-ink,#342c26);cursor:pointer;touch-action:manipulation}
+.waiter-category-panel button small{float:right;color:var(--restaurant-muted,#72665c)}
+.waiter-category-panel button.active{background:#f3e4d5;color:#93401c;font-weight:650}
+.waiter-menu-panel{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.waiter-menu-heading{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:2px 2px 10px;gap:10px}
+.waiter-menu-heading h3{margin:0;font-size:1rem}
+.waiter-menu-heading span{font-size:.75rem;color:var(--restaurant-muted,#72665c)}
+.waiter-menu-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 3px 6px}
+.waiter-dish-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,160px),1fr));gap:10px}
+.dish-card{min-width:0;padding:12px;border:1px solid var(--restaurant-line,#e9e2d9);border-radius:12px;background:var(--restaurant-paper,#fffdf9)}
+.dish-card--active{border-color:#c58c66;background:#fff7ef}
+.dish-card__body{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.dish-card__content{flex:1;min-width:0}
+.dish-card__name{font-size:.9375rem;font-weight:650;line-height:1.5;overflow-wrap:anywhere}
+.dish-card__tags{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px}
+.dish-card__price{font-size:1rem;font-weight:700;color:#a94d24;font-variant-numeric:tabular-nums}
+.dish-spice{font-size:.6875rem;color:var(--restaurant-muted,#72665c)}
+.dish-card__image{width:54px;height:54px;flex-shrink:0;border-radius:10px;overflow:hidden}
+.dish-card__image :deep(img){width:54px!important;height:54px!important;object-fit:cover}
+.dish-card__quantity{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:8px;min-height:44px}
+.dish-qty-button{display:grid;place-items:center;width:44px;height:44px;flex:0 0 44px;border:1px solid #d9b79e;border-radius:10px;background:#fffaf3;color:#95451f;font-family:inherit;font-size:1.375rem;font-weight:650;line-height:1;cursor:pointer;touch-action:manipulation}
+.dish-qty-button--plus{background:#a94d24;color:#fff;border-color:#a94d24}
+.dish-qty-button:disabled{opacity:.5;cursor:default}
+.dish-qty-count{min-width:1.4em;text-align:center;font-size:1rem;font-weight:650;font-variant-numeric:tabular-nums}
+.dish-qty-button:focus-visible,.waiter-category-panel button:focus-visible{outline:2px solid #a94d24;outline-offset:2px}
+.waiter-order-panel{min-width:0;min-height:0;display:flex;flex-direction:column;background:var(--restaurant-paper,#fffdf9);border:1px solid var(--restaurant-line,#e9e2d9);border-radius:12px;overflow:hidden}
+.waiter-order-panel>header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px;border-bottom:1px solid var(--restaurant-line,#e9e2d9)}
+.waiter-order-panel h3{margin:0;font-size:1.1875rem}
+.waiter-order-panel>header span{display:block;margin-top:4px;font-size:.75rem;color:var(--restaurant-muted,#72665c)}
+.waiter-order-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 14px}
+.waiter-order-empty{padding:40px 4px;text-align:center;font-size:.875rem;line-height:1.8;color:var(--restaurant-muted,#72665c)}
+.waiter-order-empty small{font-size:.75rem}
+.waiter-order-item{padding:12px 0;border-bottom:1px solid var(--restaurant-line,#e9e2d9)}
+.waiter-order-item__head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-size:.875rem;line-height:1.5}
+.waiter-order-item__head strong{overflow-wrap:anywhere}
+.waiter-order-item__head>span{white-space:nowrap;font-variant-numeric:tabular-nums}
+.waiter-order-item__controls{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:6px 0}
+.waiter-order-item__controls small{font-size:.75rem;color:var(--restaurant-muted,#72665c)}
+.waiter-order-item__controls .dish-card__quantity{margin:0}
+.waiter-order-footer{flex-shrink:0;padding:14px;display:grid;gap:12px;border-top:1px solid var(--restaurant-line,#e9e2d9)}
+.waiter-order-footer>div{display:flex;justify-content:space-between;align-items:center}
+.waiter-order-footer>div>span{font-size:.875rem;color:var(--restaurant-muted,#72665c)}
+.waiter-order-footer strong{font-size:1.375rem;font-variant-numeric:tabular-nums;color:#a94d24}
+.waiter-order-footer>.n-button{min-height:48px;font-size:1rem}
+.waiter-cart-bar{display:none}
+.waiter-cart-qty-button{min-width:44px!important;min-height:44px!important;padding:0!important}
+.waiter-addition-hint,.table-picker-help{color:var(--restaurant-muted,#796252);font-size:.875rem;line-height:1.6}
+.waiter-addition-hint{margin:0 0 16px}
+.table-picker-list{display:grid;gap:8px;max-height:min(50vh,400px);overflow:auto;margin-top:14px}
+.table-picker-item{min-height:54px;height:auto!important;padding:8px 12px!important}
+.table-picker-item :deep(.n-button__content){display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;white-space:normal;text-align:left}
+.table-picker-item small{font-size:.75rem;color:var(--restaurant-muted,#796252)}
+.table-submit-summary{margin:6px 0 18px;padding:16px;border-radius:12px;background:#f5eee5}
+.table-submit-summary strong{font-size:1.375rem;color:#93401c}
+.table-submit-summary span{margin-left:12px;font-size:.875rem}
+.table-submit-summary p{font-size:1rem;font-weight:700;margin:12px 0 0}
+@media(max-width:1100px){
+ .waiter-workspace{grid-template-columns:minmax(0,1fr) 260px;grid-template-rows:auto minmax(0,1fr)}
+ .waiter-category-panel{grid-column:1/-1;flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:5px;gap:5px}
+ .waiter-category-panel h3{display:none}.waiter-category-panel button{min-width:max-content;min-height:42px}.waiter-category-panel button small{float:none;margin-left:6px}
+ .waiter-dish-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,145px),1fr))}
+}
+.waiter-compact .waiter-workspace{display:flex;flex-direction:column;gap:10px}
+.waiter-compact .waiter-category-panel{flex:0 0 auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:5px;gap:5px}
+.waiter-compact .waiter-category-panel h3{display:none}.waiter-compact .waiter-category-panel button{min-width:max-content;min-height:42px}.waiter-compact .waiter-category-panel button small{float:none;margin-left:6px}
+.waiter-compact .waiter-menu-panel{flex:1;min-height:0}.waiter-compact .waiter-order-panel{display:none}
+.waiter-compact .place-order-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.waiter-compact .place-order-tools>:deep(.n-select),.waiter-compact .place-order-tools>:deep(.n-input){grid-column:1/-1}
+.waiter-compact .selected-table-reminder{font-size:.8125rem;white-space:normal}.waiter-compact .order-toolbar :deep(.n-card__content){padding:10px}
+.waiter-compact .waiter-dish-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.waiter-compact .dish-card{padding:10px}
+.waiter-compact .dish-card__image{width:42px;height:42px}.waiter-compact .dish-card__image :deep(img){width:42px!important;height:42px!important}.waiter-compact .dish-card__name{font-size:.875rem}
+.waiter-compact .waiter-cart-bar{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:var(--restaurant-paper,#fffdf9);border:1px solid var(--restaurant-line,#e9e2d9);border-radius:12px}
+.waiter-cart-bar>div:first-child{min-width:0;display:grid;line-height:1.4}.waiter-cart-bar strong{font-size:.8125rem}.waiter-cart-bar span{font-size:1rem;font-weight:700;color:#a94d24;font-variant-numeric:tabular-nums}
+.waiter-mobile-actions{display:flex;gap:6px;flex-shrink:0}.waiter-mobile-actions .n-button{min-height:44px}
+@media(max-width:359px){.waiter-compact .waiter-dish-grid{grid-template-columns:minmax(0,1fr)}.waiter-compact .waiter-cart-bar{flex-wrap:wrap}.waiter-mobile-actions{margin-left:auto}}
+:global(html.dark) .dish-card--active{background:#30251c;border-color:#9c6b46}
+:global(html.dark) .table-submit-summary{background:#30251c}
+
+.waiter-search-controls{display:flex;align-items:center;gap:8px;flex:1;min-width:180px;max-width:390px}.waiter-search-input{flex:1;min-width:0}.waiter-search-controls>.n-button{flex-shrink:0;min-height:44px}
+.waiter-compact .waiter-search-controls{grid-column:1/-1;min-width:0;max-width:none}
+.waiter-compact .place-order-tools :deep(.n-base-selection){--n-height:44px!important;min-height:44px}
+@media(orientation:landscape) and (max-height:550px){
+ .service-place-order-page.waiter-compact{padding:6px 8px!important;gap:6px}
+ .waiter-compact .waiter-workspace-shell{gap:6px}
+ .waiter-compact .place-order-tools{display:flex;flex-wrap:nowrap;gap:6px}
+ .waiter-compact .place-order-tools>:deep(.n-select){width:42%!important;flex:0 0 42%;min-width:0}
+ .waiter-compact .waiter-search-controls{flex:1;min-width:0}
+ .waiter-compact .order-toolbar :deep(.n-card__content){padding:4px 6px}
+ .waiter-compact .waiter-workspace{display:grid;grid-template-columns:76px minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:6px}
+ .waiter-compact .waiter-category-panel{grid-column:auto;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding:4px;gap:4px}
+ .waiter-compact .waiter-category-panel button{min-width:0;padding:6px;font-size:.8125rem}
+ .waiter-compact .waiter-menu-heading{display:none}
+ .waiter-compact .waiter-cart-bar{padding:4px 8px}
+ .waiter-compact .waiter-dish-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
+ .waiter-compact .dish-card{display:flex;align-items:center;justify-content:space-between;padding:8px;gap:8px}
+ .waiter-compact .dish-card__body{flex:1;min-width:0}
+ .waiter-compact .dish-card__image{display:none}
+ .waiter-compact .dish-card__quantity{margin:0;flex-shrink:0}
+}

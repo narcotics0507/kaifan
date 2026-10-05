@@ -6,16 +6,11 @@ commit=${1:-};archive_sha=${2:-};mode=${3:-publish}
 [[ "$commit" =~ ^[0-9a-f]{40}$ && "$archive_sha" =~ ^[0-9a-f]{64}$ ]] || exit 64
 root=/apps/kaifan
 cd "$root"
-# Coordinate deployment with the existing consistent daily backup.
-exec 9>"$root/backups/.backup.lock"
-flock -w 300 9
 state="$root/config/github-deployment.json"
-previous=$(readlink -f "$root/current")
-[[ "$previous" == "$root/releases/"* && -f "$previous/backend.jar" ]] || exit 65
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 work=$(mktemp -d "$root/releases/.github-${commit:0:12}-XXXXXX")
 trap 'rm -rf "$work"' EXIT
-python3 -c '
+timeout --signal=TERM --kill-after=10s 480 python3 -c '
 import sys
 size=0
 with open(sys.argv[1],"wb") as out:
@@ -28,6 +23,13 @@ with open(sys.argv[1],"wb") as out:
 ' "$work/upload.tar.gz"
 echo "$archive_sha  $work/upload.tar.gz" | sha256sum -c - >/dev/null
 python3 /usr/local/libexec/kaifan-validate-release.py "$work/upload.tar.gz" "$work/release" "$commit"
+python3 /usr/local/libexec/kaifan-cache-libraries.py restore "$work/release"
+if [[ "$mode" == check ]]; then echo "Validated $commit: archive, cached libraries and complete JAR; production unchanged."; exit 0; fi
+# Only code/database publication holds the backup lock, never network transfer.
+exec 9>"$root/backups/.backup.lock"
+flock -w 300 9
+previous=$(readlink -f "$root/current")
+[[ "$previous" == "$root/releases/"* && -f "$previous/backend.jar" ]] || exit 65
 if [[ -f "$state" ]] && python3 - "$state" "$commit" "$previous" <<'REPLAY'
 import json,sys
 s=json.load(open(sys.argv[1]));raise SystemExit(0 if s.get('commit')==sys.argv[2] and s.get('releasePath')==sys.argv[3] else 1)
@@ -36,8 +38,6 @@ then
  echo "Commit $commit is already deployed; no duplicate publication."
  exit 0
 fi
-python3 /usr/local/libexec/kaifan-cache-libraries.py restore "$work/release"
-if [[ "$mode" == check ]]; then echo "Validated $commit: archive, cached libraries and complete JAR; production unchanged."; exit 0; fi
 dc=(docker compose --env-file "$root/config/private.env" -f "$root/compose.yaml")
 mkdir -p "$root/backups/github"
 "${dc[@]}" exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --user=root --single-transaction --routines --triggers --events --set-gtid-purged=OFF --no-tablespaces kaifan' | gzip > "$root/backups/github/$stamp-${commit:0:12}.sql.gz"

@@ -13,7 +13,8 @@ test('Long identifiers stay distinct',()=>{const t=new KitchenNoticeTracker();as
 test('Long menus are summarized without losing the total count',()=>{const t=new KitchenNoticeTracker();const n=t.consume('1','A07',[paper('1','TICKET_ORDER',Array.from({length:8},(_,i)=>({dishName:'菜'+i,quantity:1})))])[0];assert(kitchenNoticeText(n).includes('等8道菜'));assert(!kitchenNoticeText(n).includes('菜6'))});
 
 test('Numbered new/add announcements use the saved kitchen number',()=>{const t=new KitchenNoticeTracker(),p=paper('n','TICKET_ADD');p.queueDate='2026-10-04';p.queueNumber=3;assert.equal(kitchenNoticeText(t.consume('1','A07',[p])[0]),'厨房顺序003号，A07桌加菜：蛋炒饭2份。请查看厨房单据。')});
-test('Notifications from different tables sort by persistent number across date boundaries',()=>{const rows=[{queueDate:'2026-10-04',queueNumber:3},{queueDate:'2026-10-03',queueNumber:10},{queueDate:'2026-10-04',queueNumber:2}];assert.deepEqual(rows.sort(compareKitchenNumbers).map(r=>r.queueNumber),[2,3,10])});
+test('Daily numbers sort by date before number across midnight',()=>{const rows=[{queueDate:'2026-10-04',queueNumber:3},{queueDate:'2026-10-03',queueNumber:10},{queueDate:'2026-10-04',queueNumber:2}];assert.deepEqual(rows.sort(compareKitchenNumbers).map(r=>r.queueNumber),[10,2,3])});
+test('Yesterday large numbers stay ahead of todays reset numbers',()=>{const rows=[{queueDate:'2026-10-05',queueNumber:1},{queueDate:'2026-10-04',queueNumber:999},{queueDate:'2026-10-05',queueNumber:2}];assert.deepEqual(rows.sort(compareKitchenNumbers).map(r=>[r.queueDate,r.queueNumber]),[['2026-10-04',999],['2026-10-05',1],['2026-10-05',2]])});
 test('Speech spells letters and preserves leading zeros in table codes',()=>{
   assert.equal(spokenTableCode('A03'),'诶零三');
   assert.equal(spokenTableCode(' b01 '),'比零一');

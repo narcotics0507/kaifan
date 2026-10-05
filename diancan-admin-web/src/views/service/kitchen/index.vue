@@ -98,7 +98,7 @@ useMerchantOverlays(returnOpen,waiveOpen,paperOpen);
 </script>
 <template>
   <div class="kitchen-papers-page">
-    <NCard :bordered="false"><div class="paper-page-head"><div><h2>厨房单据</h2><p>按厨房顺序号做菜，加菜另排新号；做完在纸单上划掉即可。</p></div><strong>{{tableCount}} 桌 · {{pageMode==='queue'?numberedPapers.length+legacyBills.length:bills.length}} {{pageMode==='queue'?'批点单':'笔账单'}}</strong></div></NCard>
+    <NCard :bordered="false"><div class="paper-page-head"><div><h2>厨房单据</h2><p>每天北京时间从 001 排起，加菜另排新号；跨天单据按日期区分。</p></div><strong>{{tableCount}} 桌 · {{pageMode==='queue'?numberedPapers.length+legacyBills.length:bills.length}} {{pageMode==='queue'?'批点单':'笔账单'}}</strong></div></NCard>
     <section class="kitchen-voice-panel" aria-label="新单和加菜语音提醒">
       <div class="voice-controls"><strong>新单 / 加菜语音</strong><span class="voice-state">{{!voiceSupported?'当前浏览器不支持语音':voiceEnabled&&voiceReady?'已开启':voiceEnabled?'待开启声音':'已关闭'}}</span><NButton type="primary" :disabled="!voiceSupported" @click="toggleVoice">{{voiceEnabled&&voiceReady?'关闭声音':'开启声音'}}</NButton><NButton :disabled="!voiceSupported" @click="enableVoice(true)">试播</NButton></div>
       <p>营业时保持页面打开、屏幕亮着，先点“试播”确认有声音。</p>

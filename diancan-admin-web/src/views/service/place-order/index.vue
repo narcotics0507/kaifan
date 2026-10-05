@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { useMerchantOverlays } from '@/hooks/business/merchant-overlays';
 import { useAppStore } from '@/store/modules/app';
+import { useResizeObserver } from '@vueuse/core';
 import { computed, nextTick, onActivated, onMounted, onUnmounted, ref } from 'vue';
 import {
-  NCard, NSpace, NGrid, NGi, NButton, NInput, NSelect,
-  NTag, NSpin, NEmpty, NBadge, NModal, NList, NListItem, NThing, NImage,
+  NCard, NSpace, NButton, NInput, NSelect,
+  NTag, NSpin, NEmpty, NModal, NList, NListItem, NThing, NImage,
   NCheckbox,
-  NScrollbar, NDivider, NSkeleton, useMessage
+  NDivider, useMessage
 } from 'naive-ui';
 import type { SelectOption } from 'naive-ui';
 import { useRoute } from 'vue-router';
@@ -29,6 +30,19 @@ const loading = ref(false);
 const isOffline = ref(!window.navigator.onLine);
 const syncingOfflineOrders = ref(false);
 const pendingOfflineCount = ref(0);
+const pageRoot = ref<HTMLElement | null>(null);
+const pageHeight = ref(640);
+const pageWidth = ref(1200);
+const compactOrdering = computed(() => appStore.isMobile || pageWidth.value < 720);
+function updatePageHeight() {
+  const bounds = pageRoot.value?.getBoundingClientRect();
+  const top = bounds?.top || 0;
+  if (bounds?.width) pageWidth.value = bounds.width;
+  const viewport = window.visualViewport?.height || window.innerHeight;
+  const footer = appStore.isMobile ? Number.parseFloat(document.documentElement.style.getPropertyValue('--merchant-nav-height')) || 72 : 12;
+  pageHeight.value = Math.max(180, Math.floor(viewport - top - footer - 12));
+}
+useResizeObserver(pageRoot, updatePageHeight);
 
 // ==================== 桌台选择 ====================
 const tables = ref<Api.Business.DiningTable[]>([]);
@@ -118,7 +132,7 @@ const categoryDishCountMap = computed(() => {
 const dishList = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase();
   return allDishes.value.filter(dish => {
-    const matchCategory = !activeCategoryId.value || String(dish.categoryId) === String(activeCategoryId.value);
+    const matchCategory = Boolean(keyword) || !activeCategoryId.value || String(dish.categoryId) === String(activeCategoryId.value);
     if (!matchCategory) return false;
     if (!keyword) return true;
     const searchText = [
@@ -158,6 +172,8 @@ async function loadAllDishes(showSectionLoading = false) {
 /** 切换分类 */
 function selectCategory(id: Api.Business.IdType | null) {
   activeCategoryId.value = id;
+  searchKeyword.value = '';
+  pageRoot.value?.querySelector('.waiter-menu-scroll')?.scrollTo({ top: 0 });
 }
 
 function handleSearch(val: string) {
@@ -174,18 +190,6 @@ interface CartItem {
 }
 
 const cart = ref<CartItem[]>([]);
-const cartButtonRef = ref<HTMLElement | null>(null);
-const flyToCartToken = ref({
-  visible: false,
-  active: false,
-  label: '',
-  x: 0,
-  y: 0,
-  targetX: 0,
-  targetY: 0
-});
-let flyTokenTimer: number | null = null;
-
 const cartTotal = computed(() => cart.value.reduce((sum, item) => sum + item.price * item.quantity, 0));
 const cartCount = computed(() => cart.value.reduce((sum, item) => sum + item.quantity, 0));
 const cartTotalText = computed(() => cartTotal.value.toFixed(2));
@@ -197,43 +201,8 @@ const cartDishCountMap = computed(() => {
   return map;
 });
 
-async function playFlyToCartEffect(dish: Api.Business.Dish, event?: MouseEvent) {
-  const startElement = event?.currentTarget as HTMLElement | null;
-  const cartElement = cartButtonRef.value;
-  if (!startElement || !cartElement) return;
-
-  const startRect = startElement.getBoundingClientRect();
-  const cartRect = cartElement.getBoundingClientRect();
-
-  if (flyTokenTimer) {
-    window.clearTimeout(flyTokenTimer);
-    flyTokenTimer = null;
-  }
-
-  flyToCartToken.value = {
-    visible: true,
-    active: false,
-    label: `+1 ${dish.name}`,
-    x: startRect.left + startRect.width / 2 - 42,
-    y: startRect.top + 12,
-    targetX: cartRect.left + cartRect.width / 2 - 42,
-    targetY: cartRect.top + 6
-  };
-
-  await nextTick();
-  requestAnimationFrame(() => {
-    flyToCartToken.value.active = true;
-  });
-
-  flyTokenTimer = window.setTimeout(() => {
-    flyToCartToken.value.visible = false;
-    flyToCartToken.value.active = false;
-    flyTokenTimer = null;
-  }, 720);
-}
-
 /** 添加菜品到购物车 */
-function addToCart(dish: Api.Business.Dish, event?: MouseEvent) {
+function addToCart(dish: Api.Business.Dish) {
   if (submitting.value) return;
   if (dish.soldOut === 1) {
     message.warning('这道菜卖完了');
@@ -255,7 +224,6 @@ function addToCart(dish: Api.Business.Dish, event?: MouseEvent) {
   } else {
     cart.value.push({ dishId: dish.id, dishName: dish.name, price: dish.price, quantity: 1, remark: '' });
   }
-  void playFlyToCartEffect(dish, event);
 }
 
 /** 修改数量 */
@@ -449,22 +417,25 @@ async function refreshOrderingMenu() {
   if (!tableResult.error && tableResult.data) tables.value = tableResult.data;
   if (!error && data) {
     categories.value = data.filter(c => c.status === 1);
-    if (!categories.value.some(c => String(c.id) === String(activeCategoryId.value))) activeCategoryId.value = null;
+    if (activeCategoryId.value !== null && !categories.value.some(c => String(c.id) === String(activeCategoryId.value))) activeCategoryId.value = categories.value[0]?.id || null;
   }
   await loadAllDishes(true);
 }
-onActivated(() => { if (pageInitialized.value) void refreshOrderingMenu(); });
+onActivated(() => { void nextTick(updatePageHeight); if (pageInitialized.value) void refreshOrderingMenu(); });
 
 onMounted(async () => {
   connectWebSocket();
   stopMenuSubscription = subscribe('/topic/sold-out', () => { void refreshOrderingMenu(); });
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
+  window.addEventListener('resize', updatePageHeight);
+  window.visualViewport?.addEventListener('resize', updatePageHeight);
+  await nextTick(); updatePageHeight();
   loading.value = true;
   try {
     const [tableRes, catRes] = await Promise.all([fetchTableList(), fetchDishCategoryList()]);
     if (!tableRes.error && tableRes.data) tables.value = tableRes.data;
-    if (!catRes.error && catRes.data) categories.value = catRes.data.filter(c => c.status === 1);
+    if (!catRes.error && catRes.data) { categories.value = catRes.data.filter(c => c.status === 1); activeCategoryId.value = categories.value[0]?.id || null; }
     initSelectedTableFromRoute();
     await loadAllDishes();
     if (!isOffline.value) {
@@ -472,24 +443,26 @@ onMounted(async () => {
     }
     void refreshPendingOfflineCount();
     pageInitialized.value = true;
-  } finally { loading.value = false; }
+  } finally { loading.value = false; await nextTick(); updatePageHeight(); }
 });
 
 onUnmounted(() => {
   stopMenuSubscription?.();
   window.removeEventListener('online', handleOnline);
   window.removeEventListener('offline', handleOffline);
+  window.removeEventListener('resize', updatePageHeight);
+  window.visualViewport?.removeEventListener('resize', updatePageHeight);
 });
 useMerchantOverlays(showCartModal, showTablePicker, showTableSwitch, showSubmitConfirm);
 </script>
 
 <template>
-  <div class="service-place-order-page">
-    <NSpace vertical :size="12">
+  <div ref="pageRoot" class="service-place-order-page" :class="{'waiter-compact':compactOrdering}" :style="{ height: pageHeight + 'px' }">
+    <div class="waiter-workspace-shell">
       <!-- 顶部：桌台选择 + 搜索 -->
       <NCard :bordered="false" class="order-toolbar">
         <div class="place-order-tools">
-          <NTag :type="isOffline ? 'error' : 'success'">
+          <NTag v-if="!compactOrdering || isOffline" :type="isOffline ? 'error' : 'success'">
             {{ isOffline ? '离线模式' : '在线模式' }}
           </NTag>
           <NTag v-if="pendingOfflineCount > 0" type="warning">
@@ -509,148 +482,66 @@ useMerchantOverlays(showCartModal, showTablePicker, showTableSwitch, showSubmitC
             placeholder="选择桌台（含区域）"
             filterable
             :disabled="loading || submitting"
-            :style="{ width: appStore.isMobile ? '100%' : '280px' }"
+            :style="{ width: compactOrdering ? '100%' : '280px' }"
             @update:value="value => chooseTable(Number(value))"
           />
-          <strong v-if="selectedTable" class="selected-table-reminder">正在为 {{ selectedTable.code }} 桌{{ selectedTableHasActiveOrder ? '加菜' : '点餐' }}</strong>
-          <NButton v-else class="select-table-prompt" @click="tableSearch = ''; showTablePicker = true">先选桌台</NButton>
+          <strong v-if="selectedTable && !compactOrdering" class="selected-table-reminder">正在为 {{ selectedTable.code }} 桌{{ selectedTableHasActiveOrder ? '加菜' : '点餐' }}</strong>
+          <NButton v-else-if="!selectedTable && !compactOrdering" class="select-table-prompt" @click="tableSearch = ''; showTablePicker = true">先选桌台</NButton>
+          <div class="waiter-search-controls">
           <NInput
             :value="searchKeyword"
             placeholder="搜索菜品..."
             clearable
             :disabled="loading || submitting"
-            :style="{ width: appStore.isMobile ? '100%' : '240px' }"
+            class="waiter-search-input"
             @update:value="handleSearch"
           />
-          <NButton :loading="dishLoading" @click="refreshOrderingMenu">刷新菜单</NButton>
-          <NBadge :value="cartCount" :max="99">
-            <NButton ref="cartButtonRef" type="primary" @click="showCartModal = true">
-              购物车 ¥{{ cartTotal.toFixed(2) }}
-            </NButton>
-          </NBadge>
+          <NButton :loading="dishLoading" @click="refreshOrderingMenu">{{ compactOrdering ? '刷新' : '刷新菜单' }}</NButton>
+          </div>
+
         </div>
       </NCard>
 
-      <NGrid :cols="24" :x-gap="appStore.isMobile ? 0 : 16">
-        <!-- 左侧：分类导航 -->
-        <NGi :span="appStore.isMobile ? 24 : 4">
-          <NCard :bordered="false" title="菜品分类" size="small" class="ordering-categories">
-            <NScrollbar :style="{ maxHeight: appStore.isMobile ? 'none' : 'calc(100vh - 240px)' }">
-              <NSpace v-if="pageInitialized" :vertical="!appStore.isMobile" :size="6" class="ordering-category-buttons">
-                <NButton
-                  :type="activeCategoryId === null ? 'primary' : 'default'"
-                  block
-                  size="small"
-                  @click="selectCategory(null)"
-                >
-                  全部（{{ allDishes.length }}）
-                </NButton>
-                <NButton
-                  v-for="cat in categories"
-                  :key="cat.id"
-                  :type="activeCategoryId === cat.id ? 'primary' : 'default'"
-                  block
-                  size="small"
-                  @click="selectCategory(cat.id)"
-                >
-                  {{ cat.name }}（{{ categoryDishCountMap.get(String(cat.id)) || 0 }}）
-                </NButton>
-              </NSpace>
-              <NSpace v-else vertical :size="8">
-                <NSkeleton v-for="idx in 6" :key="idx" height="34px" :sharp="false" style="border-radius: 12px;" />
-              </NSpace>
-            </NScrollbar>
-          </NCard>
-        </NGi>
-
-        <!-- 右侧：菜品列表 -->
-        <NGi :span="appStore.isMobile ? 24 : 20">
-          <NSpin :show="pageInitialized && dishLoading">
-            <div v-if="!pageInitialized" class="dish-skeleton-grid">
-              <div v-for="idx in 8" :key="idx" class="dish-skeleton-card">
-                <NSkeleton height="20px" width="42%" :sharp="false" />
-                <NSkeleton text :repeat="2" :sharp="false" style="margin-top: 10px;" />
-                <div class="dish-skeleton-card__foot">
-                  <NSkeleton height="18px" width="72px" :sharp="false" />
-                  <NSkeleton circle height="58px" width="58px" />
-                </div>
-              </div>
-            </div>
-            <NGrid :cols="4" :x-gap="12" :y-gap="12" responsive="screen" :item-responsive="true">
-              <NGi v-for="dish in dishList" :key="dish.id" span="4 m:2 l:1">
-                <NCard
-                  class="dish-card"
-                  :class="{ 'dish-card--active': cartDishCountMap.has(String(dish.id)) }"
-                  size="small"
-                  hoverable
-                  :style="{ opacity: dish.soldOut === 1 ? 0.5 : 1, cursor: dish.soldOut === 1 ? 'not-allowed' : 'pointer' }"
-                  @click="addToCart(dish, $event)"
-                >
+      <div class="waiter-workspace">
+        <nav class="waiter-category-panel" aria-label="菜品分类">
+          <h3>菜品分类</h3>
+          <button type="button" :class="{active: activeCategoryId === null}" @click="selectCategory(null)">全部 <small>{{ allDishes.length }}</small></button>
+          <button v-for="cat in categories" :key="cat.id" type="button" :class="{active: String(activeCategoryId) === String(cat.id)}" @click="selectCategory(cat.id)">{{ cat.name }} <small>{{ categoryDishCountMap.get(String(cat.id)) || 0 }}</small></button>
+        </nav>
+        <section class="waiter-menu-panel" aria-label="可点菜品">
+          <div class="waiter-menu-heading"><h3>{{ searchKeyword ? '搜索结果' : categories.find(c => String(c.id) === String(activeCategoryId))?.name || '全部菜品' }}</h3><span>{{ dishList.length }} 道菜</span></div>
+          <div class="waiter-menu-scroll">
+            <NSpin :show="dishLoading || !pageInitialized">
+              <div class="waiter-dish-grid">
+                <article v-for="dish in dishList" :key="dish.id" class="dish-card" :class="{'dish-card--active':cartDishCountMap.has(String(dish.id))}">
                   <div class="dish-card__body">
-                    <div class="dish-card__content">
-                      <div class="dish-card__name">{{ dish.name }}</div>
-                      <NSpace :size="8" align="center" class="dish-card__tags">
-                        <span class="dish-card__price">¥{{ dish.price.toFixed(2) }}</span>
-                        <NTag v-if="dish.soldOut === 1" type="error" size="small">卖完了</NTag>
-                        <NTag v-if="dish.spiceLevel > 0" type="warning" size="small">
-                          辣度 {{ dish.spiceLevel }}
-                        </NTag>
-                      </NSpace>
-                      <div v-if="dish.categoryName" class="dish-card__meta">{{ dish.categoryName }}</div>
-                      <div v-if="cartDishCountMap.has(String(dish.id))" class="dish-card__feedback">
-                        已选 {{ cartDishCountMap.get(String(dish.id)) }} 份
-                      </div>
-                    </div>
-                    <div class="dish-card__media">
-                      <NImage
-                        v-if="dish.image"
-                        class="dish-card__image"
-                        :src="dish.image"
-                        object-fit="cover"
-                        preview-disabled
-                      />
-                      <div v-else class="dish-card__placeholder">
-                        {{ dish.name.slice(0, 2) }}
-                      </div>
-                    </div>
+                    <div class="dish-card__content"><div class="dish-card__name">{{ dish.name }}</div><div class="dish-card__tags"><span class="dish-card__price">¥{{ dish.price.toFixed(2) }}</span><NTag v-if="dish.soldOut === 1" type="error" size="small">卖完了</NTag><span v-else-if="dish.spiceLevel > 0" class="dish-spice">{{ ['','微辣','中辣','重辣'][dish.spiceLevel] || '辣味' }}</span></div></div>
+                    <NImage v-if="dish.image" class="dish-card__image" :src="dish.image" object-fit="cover" preview-disabled />
                   </div>
-                  <div class="dish-card__quantity" @click.stop>
-                    <button
-                      v-if="cartDishCountMap.has(String(dish.id))"
-                      type="button"
-                      class="dish-qty-button"
-                      :disabled="submitting"
-                      :aria-label="'减少'+dish.name+'一份'"
-                      @click.stop="updateQuantity(dish.id, (cartDishCountMap.get(String(dish.id)) || 0) - 1)"
-                    >−</button>
-                    <span v-if="cartDishCountMap.has(String(dish.id))" class="dish-qty-count" aria-live="polite">{{ cartDishCountMap.get(String(dish.id)) }}</span>
-                    <button
-                      type="button"
-                      class="dish-qty-button dish-qty-button--plus"
-                      :disabled="submitting || dish.soldOut === 1"
-                      :aria-label="'增加'+dish.name+'一份'"
-                      @click.stop="addToCart(dish, $event)"
-                    >＋</button>
+                  <div class="dish-card__quantity">
+                    <button v-if="cartDishCountMap.has(String(dish.id))" type="button" class="dish-qty-button" :disabled="submitting" :aria-label="'减少'+dish.name+'一份'" @click="updateQuantity(dish.id,(cartDishCountMap.get(String(dish.id)) || 0)-1)">−</button>
+                    <span v-if="cartDishCountMap.has(String(dish.id))" class="dish-qty-count">{{ cartDishCountMap.get(String(dish.id)) }}</span>
+                    <button type="button" class="dish-qty-button dish-qty-button--plus" :disabled="submitting || dish.soldOut === 1" :aria-label="'增加'+dish.name+'一份'" @click="addToCart(dish)">＋</button>
                   </div>
-                </NCard>
-              </NGi>
-            </NGrid>
-            <NEmpty v-if="!dishLoading && dishList.length === 0" description="暂无菜品" style="padding: 40px;" />
-          </NSpin>
-        </NGi>
-      </NGrid>
-    </NSpace>
-
-    <div
-      v-if="flyToCartToken.visible"
-      class="cart-fly-token"
-      :class="{ 'cart-fly-token--active': flyToCartToken.active }"
-      :style="{
-        left: `${flyToCartToken.active ? flyToCartToken.targetX : flyToCartToken.x}px`,
-        top: `${flyToCartToken.active ? flyToCartToken.targetY : flyToCartToken.y}px`
-      }"
-    >
-      {{ flyToCartToken.label }}
+                </article>
+              </div>
+              <NEmpty v-if="pageInitialized && !dishLoading && !dishList.length" description="没有找到菜品，试试其他分类或菜名" />
+            </NSpin>
+          </div>
+        </section>
+        <aside class="waiter-order-panel" aria-label="本次待提交清单">
+          <header><div><h3>{{ selectedTable ? selectedTable.code + ' 桌' : '待选桌台' }}</h3><span>{{ selectedTableHasActiveOrder ? '本次加菜 · 合入原账单' : '本次选菜 · 尚未提交' }}</span></div><NButton quaternary :disabled="submitting || !cart.length" @click="clearCart">清空</NButton></header>
+          <div class="waiter-order-scroll">
+            <div v-if="!cart.length" class="waiter-order-empty">先在左侧选几道菜<br><small>已选菜品和备注会显示在这里</small></div>
+            <article v-for="item in cart" :key="item.dishId" class="waiter-order-item">
+              <div class="waiter-order-item__head"><strong>{{ item.dishName }}</strong><span>¥{{ (item.price * item.quantity).toFixed(2) }}</span></div>
+              <div class="waiter-order-item__controls"><small>¥{{ item.price.toFixed(2) }} / 份</small><div class="dish-card__quantity"><button class="dish-qty-button" :disabled="submitting" :aria-label="'减少'+item.dishName+'一份'" @click="updateQuantity(item.dishId,item.quantity-1)">−</button><span class="dish-qty-count">{{ item.quantity }}</span><button class="dish-qty-button dish-qty-button--plus" :disabled="submitting" :aria-label="'增加'+item.dishName+'一份'" @click="updateQuantity(item.dishId,item.quantity+1)">＋</button></div></div>
+              <NInput v-model:value="item.remark" :disabled="submitting" placeholder="口味备注（选填）" maxlength="150" :aria-label="item.dishName+'口味备注'" />
+            </article>
+          </div>
+          <footer class="waiter-order-footer"><div><span>共 {{ cartCount }} 份</span><strong>¥{{ cartTotalText }}</strong></div><NCheckbox v-if="!selectedTableHasActiveOrder" v-model:checked="preOrderMode" :disabled="submitting">预订单（暂不通知后厨）</NCheckbox><NButton type="primary" block :loading="submitting" :disabled="!cart.length" @click="requestSubmit">{{ selectedTableHasActiveOrder ? '确认加菜' : preOrderMode ? '保存预订单' : '提交订单' }}</NButton></footer>
+        </aside>
+      </div>
     </div>
 
     <!-- 购物车弹窗 -->
@@ -712,249 +603,11 @@ useMerchantOverlays(showCartModal, showTablePicker, showTableSwitch, showSubmitC
         <NButton type="primary" :loading="submitting" @click="submitOrder">确认提交到 {{ selectedTable?.code }} 桌</NButton>
       </NSpace>
     </NModal>
-    <div v-if="appStore.isMobile" class="waiter-cart-bar" aria-label="待提交清单">
+    <div v-if="compactOrdering" class="waiter-cart-bar" aria-label="待提交清单">
       <div><strong>{{ selectedTable ? `${selectedTable.code} 桌 · 已选 ${cartCount} 份` : '还没选桌台' }}</strong><span>合计 ¥{{ cartTotalText }}</span></div>
-      <NButton type="primary" :disabled="submitting" @click="showCartModal = true">查看清单{{ cartCount ? `（${cartCount}）` : '' }}</NButton>
+      <div class="waiter-mobile-actions"><NButton :disabled="submitting" @click="showCartModal = true">清单</NButton><NButton type="primary" :loading="submitting" :disabled="!cart.length" @click="requestSubmit">{{ selectedTableHasActiveOrder ? '确认加菜' : '提交订单' }}</NButton></div>
     </div>
   </div>
 </template>
 
-<style scoped>
-.waiter-addition-hint{margin:0 0 16px;color:var(--restaurant-muted,#796252);font-size:.875rem;line-height:1.6}
-.selected-table-reminder{display:inline-flex;align-items:center;min-height:40px;padding:6px 10px;border-radius:10px;background:#f3e4d5;color:#93401c;font-size:.875rem;white-space:nowrap}
-.select-table-prompt{min-height:44px}
-.table-picker-help{color:var(--restaurant-muted,#796252);font-size:.875rem;line-height:1.6}
-.table-picker-list{display:grid;gap:8px;max-height:min(50vh,400px);overflow:auto;margin-top:14px}
-.table-picker-item{min-height:54px;height:auto!important;padding:8px 12px!important}
-.table-picker-item :deep(.n-button__content){display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;white-space:normal;text-align:left}
-.table-picker-item small{font-size:.75rem;color:var(--restaurant-muted,#796252)}
-.table-submit-summary{margin:6px 0 18px;padding:16px;border-radius:12px;background:#f5eee5}
-.table-submit-summary strong{font-size:1.375rem;color:#93401c}.table-submit-summary span{margin-left:12px;font-size:.875rem}.table-submit-summary p{font-size:1rem;font-weight:700;margin:12px 0 0}
-.dish-card__quantity{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:10px;min-height:44px}
-.dish-qty-button{display:grid;place-items:center;width:44px;height:44px;flex:0 0 44px;border:1px solid #d9b79e;border-radius:12px;background:#fffaf3;color:#95451f;font-family:inherit;font-size:1.375rem;font-weight:700;line-height:1;cursor:pointer;touch-action:manipulation}
-.dish-qty-button--plus{background:#a94d24;color:#fff;border-color:#a94d24}
-.dish-qty-button:disabled{opacity:.5;cursor:default}
-.dish-qty-button:focus-visible{outline:3px solid #a94d24;outline-offset:2px}
-.dish-qty-count{min-width:1.5em;text-align:center;font-size:1rem;font-weight:700;font-variant-numeric:tabular-nums}
-.waiter-cart-qty-button{min-width:44px!important;min-height:44px!important;padding:0!important}
-.waiter-cart-bar{display:none}
-.place-order-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.order-toolbar {
-  position:sticky;top:0;z-index:12;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(239, 247, 255, 0.96)) !important;
-}
-
-.dish-skeleton-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.dish-skeleton-card {
-  padding: 14px;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at top right, rgba(15, 111, 255, 0.05), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(243, 249, 255, 0.82));
-  border: 1px solid rgba(15, 111, 255, 0.08);
-}
-
-.dish-skeleton-card__foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 14px;
-}
-
-.dish-card {
-  overflow: hidden;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at top right, rgba(15, 111, 255, 0.08), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(243, 249, 255, 0.82)) !important;
-  border: 1px solid rgba(15, 111, 255, 0.1);
-  box-shadow:
-    0 18px 34px rgba(15, 57, 119, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.82);
-  transition:
-    transform 0.22s ease,
-    box-shadow 0.22s ease,
-    border-color 0.22s ease;
-}
-
-.dish-card:hover {
-  transform: translateY(-5px);
-  box-shadow:
-    0 24px 44px rgba(15, 57, 119, 0.14),
-    0 10px 24px rgba(8, 27, 58, 0.06);
-}
-
-.dish-card--active {
-  border-color: rgba(var(--admin-accent-rgb), 0.2);
-  box-shadow:
-    0 24px 42px rgba(var(--admin-accent-rgb), 0.12),
-    inset 0 0 0 1px rgba(var(--admin-accent-rgb), 0.08);
-}
-
-.dish-card__body {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.dish-card__content {
-  min-width: 0;
-  flex: 1;
-}
-
-.dish-card__name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #123055;
-}
-
-.dish-card__tags {
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.dish-card__price {
-  color: #d03050;
-  font-weight: 700;
-}
-
-.dish-card__meta {
-  margin-top: 8px;
-  font-size: 11px;
-  color: #7a8ca8;
-}
-
-.dish-card__feedback {
-  margin-top: 8px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--admin-accent-strong);
-}
-
-.dish-card__media {
-  flex-shrink: 0;
-}
-
-.dish-card__image,
-.dish-card__placeholder {
-  width: 58px;
-  height: 58px;
-  border-radius: 16px;
-}
-
-.dish-card__placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(180deg, rgba(15, 111, 255, 0.14), rgba(20, 163, 255, 0.08));
-  border: 1px solid rgba(15, 111, 255, 0.12);
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f6fff;
-}
-
-.cart-fly-token {
-  position: fixed;
-  z-index: 1200;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--admin-accent-gradient-start), var(--admin-accent-gradient-end));
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  pointer-events: none;
-  box-shadow: 0 16px 28px rgba(var(--admin-accent-rgb), 0.24);
-  opacity: 0.92;
-  transform: scale(0.96);
-  transition:
-    left 0.68s cubic-bezier(0.2, 0.8, 0.2, 1),
-    top 0.68s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.68s cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 0.68s ease;
-}
-
-.cart-fly-token--active {
-  opacity: 0.2;
-  transform: scale(0.72);
-}
-
-@media (max-width: 960px) {
-  .dish-skeleton-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-html.dark .order-toolbar {
-  background: linear-gradient(180deg, rgba(9, 13, 21, 0.96), rgba(14, 19, 30, 0.98)) !important;
-}
-
-html.dark .dish-card {
-  background:
-    radial-gradient(circle at top right, rgba(var(--admin-accent-rgb), 0.12), transparent 28%),
-    linear-gradient(180deg, rgba(12, 17, 28, 0.96), rgba(8, 12, 20, 0.96)) !important;
-  border-color: rgba(255, 255, 255, 0.06);
-  box-shadow:
-    0 18px 34px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-html.dark .dish-card:hover {
-  box-shadow:
-    0 24px 44px rgba(0, 0, 0, 0.34),
-    0 10px 24px rgba(0, 0, 0, 0.18);
-}
-
-html.dark .dish-card--active {
-  border-color: rgba(var(--admin-accent-rgb), 0.24);
-  box-shadow:
-    0 22px 40px rgba(0, 0, 0, 0.3),
-    inset 0 0 0 1px rgba(var(--admin-accent-rgb), 0.14);
-}
-
-html.dark .dish-card__name {
-  color: rgba(241, 246, 255, 0.96);
-}
-
-html.dark .dish-card__meta {
-  color: rgba(170, 186, 216, 0.72);
-}
-
-html.dark .dish-card__feedback {
-  color: #dbe5ff;
-}
-
-html.dark .dish-card__placeholder {
-  background: linear-gradient(180deg, rgba(var(--admin-accent-rgb), 0.18), rgba(var(--admin-accent-rgb), 0.08));
-  border-color: rgba(var(--admin-accent-rgb), 0.14);
-  color: #dbe5ff;
-}
-
-html.dark .cart-fly-token {
-  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.3);
-}
-
-
-@media (max-width: 639px) {
-  .service-place-order-page{padding-bottom:84px}
-  .waiter-cart-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;position:fixed;bottom:var(--merchant-nav-height,72px);left:0;right:0;z-index:1200;padding:10px 14px;background:var(--restaurant-paper,#fffaf3);border-top:1px solid var(--restaurant-line,#e9dfd2)}
-  .waiter-cart-bar>div{min-width:0;display:grid;line-height:1.35}
-  .waiter-cart-bar strong{font-size:.875rem}
-  .waiter-cart-bar span{font-size:1.125rem;font-weight:700;color:#a94d24;font-variant-numeric:tabular-nums}
-  .waiter-cart-bar .n-button{min-height:44px;flex-shrink:0}
-  .place-order-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .place-order-tools > * { min-width: 0; }
-  .place-order-tools > :deep(.n-select), .place-order-tools > :deep(.n-input), .place-order-tools > :deep(.n-tag) { grid-column: 1 / -1; }
-  .ordering-category-buttons :deep(.n-button) { width: auto; }
-  .ordering-categories { margin-bottom: 12px; }
-  .ordering-categories :deep(.n-card-header) { padding-bottom: 8px; }
-  .dish-card__name { font-size: 17px; }
-  .dish-card__price { font-size: 18px; }
-  .dish-skeleton-grid { grid-template-columns: 1fr; }
-}
-</style>
+<style scoped src="./workspace.css"></style>

@@ -44,4 +44,4 @@ export function kitchenNoticeText(notice: KitchenNotice, spoken = false) {
   return `${prefix}${notice.kind === 'new' ? '有新订单' : '加菜'}${summary ? '：' + summary + more : ''}。请查看厨房单据。`;
 }
 
-export function compareKitchenNumbers(a:{queueDate?:string;queueNumber?:number;createTime?:string},b:{queueDate?:string;queueNumber?:number;createTime?:string}){return (a.queueNumber||0)-(b.queueNumber||0) || (a.queueDate||a.createTime?.slice(0,10)||'').localeCompare(b.queueDate||b.createTime?.slice(0,10)||'')}
+export function compareKitchenNumbers(a:{queueDate?:string;queueNumber?:number;createTime?:string},b:{queueDate?:string;queueNumber?:number;createTime?:string}){return (a.queueDate||a.createTime?.slice(0,10)||'').localeCompare(b.queueDate||b.createTime?.slice(0,10)||'') || (a.queueNumber||0)-(b.queueNumber||0)}
