@@ -2,6 +2,7 @@ import {createApp,ref,computed,onMounted,onUnmounted,nextTick,watch} from 'vue/d
 import './style.css';
 import './refinement.css';
 import {installCustomerViewport} from './viewport.js';
+import {validGuestCount,stepGuestCount,guestCharge} from './guest-count.js';
 const manager=location.pathname.includes('/tables');
 let token='';
 const imageUrl=u=>String(u||'').replace('http://127.0.0.1:19000/','/__images/');
@@ -24,10 +25,13 @@ createApp({
   const categories=ref([]),menu=ref({}),cart=ref({items:[],totalCount:0,totalPrice:0}),orders=ref([]),table=ref(null);
   const selected=ref(''),query=ref(''),view=ref('menu'),busy=ref(false),loading=ref(true),online=ref(navigator.onLine),error=ref(''),notice=ref(''),ended=ref(false),invalid=ref(false);
   const modal=ref(null),detail=ref(null),detailQty=ref(1),detailRemark=ref(''),orderRemark=ref(''),lastBill=ref(null);
-  const guestCount=ref(null);
+  const guestCount=ref(null),savingRemark=ref(false),submitting=ref(false);
+  let remarkSave=Promise.resolve(true),failedRemark=null;
   const needsGuestCount=computed(()=>!orders.value.some(o=>o.status===0||o.status===1));
-  const cartPayable=computed(()=>Number(cart.value.totalPrice||0)+(needsGuestCount.value?Number(guestCount.value||0):0));
-  function setGuestCount(value){guestCount.value=value===''?null:Number(value);storage.remove('submit');storage.set('guest-count',{session:table.value?.currentSessionCode,count:guestCount.value});}
+  const guestCountValid=computed(()=>validGuestCount(guestCount.value));
+  const cartPayable=computed(()=>Number(cart.value.totalPrice||0)+(needsGuestCount.value?guestCharge(guestCount.value):0));
+  function adjustGuestCount(direction){setGuestCount(stepGuestCount(guestCount.value,direction));}
+  function setGuestCount(value){guestCount.value=value===''||value===null?null:Number(value);storage.remove('submit');storage.set('guest-count',{session:table.value?.currentSessionCode,count:guestCount.value});}
   watch(()=>table.value?.currentSessionCode,session=>{const saved=storage.get('guest-count');guestCount.value=saved?.session===session?saved.count:null;});
   const managerUser=ref(''),managerPassword=ref(''),links=ref([]),qrUrls=ref({});
   const scan=new URLSearchParams(location.search);const scanCode=scan.get('table')||'';const scanKey=scan.get('key')||'';
@@ -69,6 +73,7 @@ createApp({
    else if(scanCode||scanKey){invalid.value=true;error.value='桌台链接不完整，请扫描桌面二维码';}
    if(table.value){const [c,o]=await Promise.all([api('/app/cart?tableId='+table.value.id),api('/app/order/table/'+table.value.id)]);cart.value=c;orders.value=o;}
   }catch(e){error.value=e.message;}finally{loading.value=false;}}
+  function storageRemoveSubmit(){storage.remove('submit');}
   function requireTable(){modal.value='scan';}
   function openDetail(d){detail.value=d;detailQty.value=1;detailRemark.value='';modal.value='detail';}
   async function change(d,delta){if(!active.value){requireTable();return;}if(busy.value)return;
@@ -80,9 +85,23 @@ createApp({
   async function addDetail(){if(!active.value){requireTable();return;}busy.value=true;try{
    cart.value=await api('/app/cart/item?tableId='+table.value.id,'POST',{dishId:detail.value.id,quantity:detailQty.value,remark:detailRemark.value.trim()});modal.value=null;toast('已加入购物车');storage.remove('submit');
   }catch(e){error.value=e.message;if(e.code===403)endVisit();}finally{busy.value=false;}}
-  async function updateRemark(item,event){busy.value=true;try{cart.value=await api('/app/cart/item/'+item.dishId+'?tableId='+table.value.id+'&remark='+encodeURIComponent(event.target.value.trim()),'PUT');storage.remove('submit');}catch(e){error.value=e.message;}finally{busy.value=false;}}
+  function updateRemark(item,event){
+   const request={dishId:item.dishId,tableId:table.value.id,value:event.target.value.trim()};
+   busy.value=true;savingRemark.value=true;
+   remarkSave=(async()=>{try{cart.value=await api('/app/cart/item/'+request.dishId+'?tableId='+request.tableId+'&remark='+encodeURIComponent(request.value),'PUT');storage.remove('submit');failedRemark=null;return true;}catch(e){failedRemark=request;error.value=e.message;return false;}finally{busy.value=false;savingRemark.value=false;}})();
+   return remarkSave;
+  }
   async function clearCart(){busy.value=true;try{await api('/app/cart?tableId='+table.value.id,'DELETE');cart.value={items:[],totalCount:0,totalPrice:0};storage.remove('submit');}catch(e){error.value=e.message;}finally{busy.value=false;}}
-  async function submit(){if(busy.value||!active.value||!cart.value.items.length||cart.value.hasUnavailableItems)return;if(needsGuestCount.value&&(!Number.isInteger(guestCount.value)||guestCount.value<1||guestCount.value>99)){error.value='请确认本桌用餐人数（1至99人）';return;}busy.value=true;error.value='';
+  async function submit(){
+   if(submitting.value)return;submitting.value=true;
+   try{return await submitCart();}finally{submitting.value=false;}
+  }
+  async function submitCart(){
+   if(!await remarkSave){
+    const item=cart.value.items.find(i=>String(i.dishId)===String(failedRemark?.dishId));
+    if(item&&!(await updateRemark(item,{target:{value:failedRemark.value}})))return;
+   }
+   if(modal.value!=='cart'||busy.value||!active.value||!cart.value.items.length||cart.value.hasUnavailableItems)return;if(needsGuestCount.value&&(!Number.isInteger(guestCount.value)||guestCount.value<1||guestCount.value>99)){error.value='请确认本桌用餐人数（1至99人）';return;}busy.value=true;error.value='';
    try{
     let body=storage.get('submit');if(!body||body.tableId!==table.value.id||body.sessionCode!==table.value.currentSessionCode){body={tableId:table.value.id,sessionCode:table.value.currentSessionCode,requestId:uuid(),remark:orderRemark.value.trim(),guestCount:needsGuestCount.value?guestCount.value:undefined};storage.set('submit',body);}
     await api('/app/h5/submit','POST',body);storage.remove('submit');cart.value={items:[],totalCount:0,totalPrice:0};orderRemark.value='';modal.value=null;view.value='orders';toast('下单成功，用餐后到前台结账');await refresh();
@@ -95,7 +114,7 @@ createApp({
   const onOnline=()=>{online.value=true;refresh();catalogue().catch(()=>{});};const onOffline=()=>{online.value=false;};const onVisible=()=>{if(!document.hidden){refresh();catalogue().catch(()=>{});}};
   onMounted(async()=>{if(!manager)await boot();else loading.value=false;timer=setInterval(()=>{refresh();if(!document.hidden&&!manager)catalogue().catch(()=>{});},15000);window.addEventListener('online',onOnline);window.addEventListener('offline',onOffline);document.addEventListener('visibilitychange',onVisible);document.addEventListener('keydown',onKey);});
   onUnmounted(()=>{restoreViewport();clearInterval(timer);clearTimeout(noticeTimer);window.removeEventListener('online',onOnline);window.removeEventListener('offline',onOffline);document.removeEventListener('visibilitychange',onVisible);document.removeEventListener('keydown',onKey);document.body.style.overflow='';Object.values(qrUrls.value).forEach(URL.revokeObjectURL);});
-  return {manager,managerUser,managerPassword,managerLogin,printCodes:()=>window.print(),catalogue,links,qrUrls,copyLink,categories,dishes,menu,cart,orders,table,selected,query,view,busy,loading,online,error,notice,ended,invalid,modal,detail,detailQty,detailRemark,orderRemark,lastBill,guestCount,needsGuestCount,cartPayable,setGuestCount,money,qty,pendingTotal,pendingCount,active,imageUrl,choose,requireTable,openDetail,change,addDetail,updateRemark,submit,clearCart,join,boot,refresh,scanCode,scanKey};
+  return {savingRemark,submitting,manager,managerUser,managerPassword,managerLogin,printCodes:()=>window.print(),catalogue,links,qrUrls,copyLink,categories,dishes,menu,cart,orders,table,selected,query,view,busy,loading,online,error,notice,ended,invalid,modal,detail,detailQty,detailRemark,orderRemark,lastBill,guestCount,guestCountValid,adjustGuestCount,needsGuestCount,cartPayable,setGuestCount,money,qty,pendingTotal,pendingCount,active,imageUrl,choose,storageRemoveSubmit,requireTable,openDetail,change,addDetail,updateRemark,submit,clearCart,join,boot,refresh,scanCode,scanKey};
  },
  template:`
  <div class="app-shell" :class="{manager}">
@@ -127,10 +146,35 @@ createApp({
    <div class="cart-bar" v-if="active&&view==='menu'"><button class="cart-total" @click="modal='cart'"><span class="basket-symbol"><img class="ui-icon" src="/order/icons/basket.svg" alt="" aria-hidden="true"><i v-if="cart.totalCount">{{cart.totalCount}}</i></span><span><strong>¥{{money(cart.totalPrice)}}</strong><small>已选 {{cart.totalCount||0}} 份 · {{needsGuestCount?"菜品金额，餐具另计":"本次加菜，不重复计餐具"}}</small></span></button><button class="primary" @click="modal='cart'" :disabled="!cart.totalCount||busy">选好了</button></div>
    <nav class="bottom-tabs" aria-label="点餐导航"><button :class="{current:view==='menu'}" @click="view='menu'"><img class="ui-icon" src="/order/icons/menu.svg" alt="" aria-hidden="true">菜单</button><button :class="{current:view==='orders'}" @click="view='orders';refresh()"><img class="ui-icon" src="/order/icons/receipt.svg" alt="" aria-hidden="true">本桌订单</button></nav>
   </template>
-  <div v-if="modal" class="modal-shade" @click.self="modal=null"><section class="sheet" tabindex="-1" role="dialog" aria-modal="true" :aria-label="modal==='cart'?'购物车':modal==='scan'?'请先关联桌台':'菜品与操作'">
-   <header><h2>{{modal==='cart'?'确认选好的菜':modal==='detail'?detail.name:modal==='rejoin'?'开启新一次用餐':modal==='scan'?'请先扫描桌面点餐码':'桌台链接'}}</h2><button class="close" @click="modal=null" aria-label="关闭">×</button></header>
+  <div v-if="modal" class="modal-shade" @click.self="!busy&&!submitting&&(modal=null)"><section class="sheet" :class="{'cart-sheet':modal==='cart'}" tabindex="-1" role="dialog" aria-modal="true" :aria-label="modal==='cart'?'购物车':modal==='scan'?'请先关联桌台':'菜品与操作'">
+   <header><h2>{{modal==='cart'?'确认选好的菜':modal==='detail'?detail.name:modal==='rejoin'?'开启新一次用餐':modal==='scan'?'请先扫描桌面点餐码':'桌台链接'}}</h2><button class="close" @click="modal=null" :disabled="busy||submitting" aria-label="关闭">×</button></header>
    <template v-if="modal==='detail'"><img class="detail-photo" :src="imageUrl(detail.image||detail.thumbnail)" :alt="detail.name"><p>{{detail.description||'现点现做的家常好味。'}}</p><strong class="detail-price">¥{{money(detail.price)}} / 份</strong><label>口味备注<input v-model="detailRemark" maxlength="150" placeholder="例如：少辣、不要香菜"></label><div class="detail-action"><div class="stepper"><button @click="detailQty=Math.max(1,detailQty-1)">−</button><span>{{detailQty}}</span><button @click="detailQty=Math.min(99,detailQty+1)">+</button></div><button class="primary" @click="addDetail" :disabled="busy||loading">加入购物车</button></div></template>
-   <template v-if="modal==='cart'"><p class="plain-hint">{{table?.code}} 桌 · 确认下单后才开台，用餐后统一结账。</p><section v-if="needsGuestCount" class="guest-confirm"><label for="guest-count">本桌用餐人数</label><div class="guest-quick"><button v-for="n in [1,2,3,4,5,6,7,8]" :key="n" :class="{chosen:guestCount===n}" @click="setGuestCount(n)">{{n}}人</button></div><input id="guest-count" type="number" inputmode="numeric" min="1" max="99" step="1" :value="guestCount" @input="setGuestCount($event.target.value)" placeholder="也可直接填写人数"><p>每人一套餐具，1元/套。{{guestCount?'本桌'+guestCount+'人，餐具费 ¥'+money(guestCount):'确认人数后自动加入本桌账单。'}}</p></section><p v-else class="plain-hint">给本桌加菜，餐具费不重复收取；调整人数或套数请联系前台。</p><div class="cart-scroll"><article v-for="i in cart.items" :key="i.dishId" class="cart-item"><div class="cart-line"><b>{{i.dishName}}</b><strong>¥{{money(i.amount)}}</strong><div class="stepper"><button @click="change(i,-1)" :disabled="busy">−</button><span>{{i.quantity}}</span><button @click="change(i,1)" :disabled="busy||i.available===false">+</button></div></div><p v-if="i.available===false" class="unavailable">{{i.unavailableReason}}，请减少或移除后再提交。</p><input v-model="i.remark" @change="updateRemark(i,$event)" maxlength="150" :aria-label="i.dishName+'口味备注'" placeholder="口味备注（选填）"></article><p v-if="!cart.items.length" class="empty-state">购物车还是空的</p></div><label>整单备注<input v-model="orderRemark" maxlength="500" placeholder="有其他要求可以告诉我们"></label><div class="cart-foot"><button @click="clearCart" :disabled="busy||!cart.items.length">清空</button><strong>合计 ¥{{money(cartPayable)}}</strong><button class="primary" @click="submit" :disabled="busy||!cart.items.length||cart.hasUnavailableItems||(needsGuestCount&&(!Number.isInteger(guestCount)||guestCount<1||guestCount>99))">{{busy?'正在提交…':'确认下单'}}</button></div><p class="plain-hint">已经提交的菜需要退换，请联系前台。</p></template>
+   <template v-if="modal==='cart'">
+    <div class="cart-sheet-body">
+      <p class="cart-context">{{table?.code}} 桌 · 用餐后统一结账</p>
+      <section v-if="needsGuestCount" class="guest-confirm">
+        <div class="guest-row"><label for="guest-count">本桌人数</label><div class="guest-control" role="group" aria-label="用餐人数">
+          <button type="button" @click="adjustGuestCount(-1)" :disabled="busy||!guestCountValid||guestCount<=1" aria-label="减少用餐人数" aria-controls="guest-count">−</button>
+          <input id="guest-count" type="number" inputmode="numeric" min="1" max="99" step="1" :value="guestCount" @input="setGuestCount($event.target.value)" :disabled="busy" :aria-invalid="guestCount!==null&&!guestCountValid" aria-describedby="guest-count-help" placeholder="人数"><span aria-hidden="true">人</span>
+          <button type="button" @click="adjustGuestCount(1)" :disabled="busy||guestCount>=99" aria-label="增加用餐人数" aria-controls="guest-count">+</button>
+        </div></div>
+        <p id="guest-count-help" :class="{'guest-error':guestCount!==null&&!guestCountValid}">{{guestCount!==null&&!guestCountValid?'请输入1至99人的整数':guestCountValid?'每人一套餐具，¥1/套':'请选择用餐人数，餐具¥1/套'}}</p>
+      </section>
+      <p v-else class="cart-addition-note">本次加菜，餐具费不重复收取。</p>
+      <div class="cart-list-heading"><h3>已选 {{cart.totalCount||0}} 份菜品</h3><button type="button" @click="clearCart" :disabled="busy||!cart.items.length">清空</button></div>
+      <div class="cart-scroll"><article v-for="i in cart.items" :key="i.dishId" class="cart-item">
+        <div class="cart-line"><b>{{i.dishName}}</b><strong>¥{{money(i.amount)}}</strong><div class="stepper"><button @click="change(i,-1)" :disabled="busy" :aria-label="'减少'+i.dishName">−</button><span>{{i.quantity}}</span><button @click="change(i,1)" :disabled="busy||i.available===false" :aria-label="'增加'+i.dishName">+</button></div></div>
+        <p v-if="i.available===false" class="unavailable">{{i.unavailableReason}}，请减少或移除后再提交。</p>
+        <details class="cart-remark" :open="!!i.remark"><summary>{{i.remark?'口味备注：'+i.remark:'添加口味备注（选填）'}}</summary><input v-model="i.remark" @change="updateRemark(i,$event)" maxlength="150" :aria-label="i.dishName+'口味备注'" placeholder="例如：少辣、不要香菜" :disabled="busy"></details>
+      </article><p v-if="!cart.items.length" class="empty-state">购物车还是空的</p></div>
+      <details class="order-remark" :open="!!orderRemark"><summary>{{orderRemark?'整单备注：'+orderRemark:'添加整单备注（选填）'}}</summary><input v-model="orderRemark" @input="storageRemoveSubmit" maxlength="500" aria-label="整单备注" placeholder="有其他要求可以告诉我们" :disabled="busy"></details>
+      <p class="cart-help">已提交的菜需退换，请联系前台。</p>
+    </div>
+    <footer class="cart-checkout-footer">
+      <div class="checkout-breakdown"><span>菜品金额</span><span>¥{{money(cart.totalPrice)}}</span><template v-if="needsGuestCount"><span>{{guestCountValid?'餐具 '+guestCount+'套 × ¥1':'餐具费'}}</span><span>{{guestCountValid?'¥'+money(guestCount):'待确认人数'}}</span></template></div>
+      <p v-if="error" class="cart-submit-error" role="alert">{{error}}</p><div class="cart-foot"><div class="checkout-total"><small>{{needsGuestCount&&!guestCountValid?'菜品金额':'合计'}}</small><strong>¥{{money(cartPayable)}}</strong></div><button class="primary" @click="submit" :disabled="submitting||(busy&&!savingRemark)||!cart.items.length||cart.hasUnavailableItems||(needsGuestCount&&!guestCountValid)">{{submitting?'正在提交…':'确认下单'}}</button></div>
+    </footer>
+   </template>
    <template v-if="modal==='scan'"><p>{{ended?'本次用餐已结束，请重新扫描当前桌面的点餐二维码。':'当前还没有关联桌台，暂时不能把菜加入购物车。'}}</p><p>请用微信“扫一扫”扫描桌面上的点餐二维码，或打开商家发给你的完整桌台点餐链接。</p><button v-if="ended&&scanCode&&scanKey" class="primary wide" @click="modal='rejoin'">已再次入座，重新关联这桌</button><button class="primary wide" @click="modal=null">知道了，继续看菜单</button></template>
    <template v-if="modal==='rejoin'"><p>确认你已再次入座 {{scanCode}} 桌。会关联当前桌次，旧购物车不会带入。</p><button class="primary wide" @click="join" :disabled="busy">确认入座，开始点餐</button></template>
    <template v-if="modal==='link'"><textarea readonly :value="detail.url" @focus="$event.target.select()"></textarea><p>长按复制链接，发给朋友测试。</p></template>
