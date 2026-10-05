@@ -1,7 +1,7 @@
 name: Check, build and deploy
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:

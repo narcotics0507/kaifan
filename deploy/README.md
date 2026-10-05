@@ -2,10 +2,10 @@
 
 工作流：`.github/workflows/ci.yml`。
 
-- 所有分支和 Pull Request 执行检查，`main` 的成功构建自动发布。
+- Pull Request 执行检查，`main` 的成功构建自动发布。
 - 发布使用 GitHub 的 `production` Environment，仅允许 `main`。
 - 使用 GitHub 托管 Ubuntu runner 构建，不在 2GB 门店服务器编译。
-- Actions 固定到已核对的完整 commit SHA；Dependabot 每月提出更新。
+- Actions 固定到已核对的完整 commit SHA；依赖更新需提交代码并经过相同检查。
 - 检查通过后传送一个包含后端 JAR、两个网页和迁移 SQL 的压缩包。
 - 服务端核对整体 SHA256、每个文件校验和、Git commit 和路径；拒绝软链接、路径穿越及超限压缩包。
 - 同一分支发布串行；同一 commit 重试不重复发布。
