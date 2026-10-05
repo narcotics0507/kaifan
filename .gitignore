@@ -32,3 +32,12 @@ release/
 **/__pycache__/
 *.py[cod]
 kaifan-release.tar.gz
+.kiro/
+**/.mvn/
+diancan-admin/mvnw
+diancan-admin/mvnw.cmd
+diancan-admin-web/package-lock.json
+diancan-admin-web/yarn.lock
+/local-dev/
+/research/
+/deployment/
