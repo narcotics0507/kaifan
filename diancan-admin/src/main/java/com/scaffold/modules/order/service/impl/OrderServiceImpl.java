@@ -153,6 +153,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
             // 2. 获取桌台信息
             DiningTableVO table = getTableInfo(tableId);
+            String tableSessionCode = resolveTableSessionCodeForOrder(tableId);
+            Order order = new Order();
+            order.setTableId(tableId); order.setTableCode(table.getCode()); order.setTableSessionCode(tableSessionCode);
+            // People must be valid before either Redis or MySQL stock is deducted.
+            initializeTableware(order, dto.getGuestCount());
 
             // 3. 校验菜品可用性并扣减库存
             List<Long> deductedDishIds = new ArrayList<>();
@@ -173,15 +178,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             BigDecimal originalAmount = cart.getItems().stream()
                     .map(CartItemVO::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            String tableSessionCode = resolveTableSessionCodeForOrder(tableId);
-
             // 5. 创建订单
-            Order order = new Order();
             order.setOrderNo(generateOrderNo());
             order.setTableId(tableId);
             order.setTableCode(table.getCode());
             order.setTableSessionCode(tableSessionCode);
-            initializeTableware(order, dto.getGuestCount());
             originalAmount = originalAmount.add(com.scaffold.modules.order.service.TablewareBilling.amount(order));
             order.setOriginalAmount(originalAmount);
             order.setDiscountRate(BigDecimal.ONE);
@@ -283,6 +284,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 validateAdminCreateOrderConflict(tableId, tableCode, tableSessionCode);
             }
 
+            Order order = new Order();
+            order.setTableId(tableId); order.setTableCode(tableCode); order.setTableSessionCode(tableSessionCode);
+            initializeTableware(order, dto.getGuestCount());
+
             // 2. 校验菜品可用性并扣减库存
             List<Long> deductedDishIds = new ArrayList<>();
             List<Integer> deductedQuantities = new ArrayList<>();
@@ -305,12 +310,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             }
 
             // 3. 创建订单
-            Order order = new Order();
             order.setOrderNo(generateOrderNo());
             order.setTableId(tableId);
             order.setTableCode(tableCode);
             order.setTableSessionCode(tableSessionCode);
-            initializeTableware(order, dto.getGuestCount());
             originalAmount = originalAmount.add(com.scaffold.modules.order.service.TablewareBilling.amount(order));
             order.setOriginalAmount(originalAmount);
             order.setDiscountRate(resolveMemberDiscountRate(dto.getUserId()));

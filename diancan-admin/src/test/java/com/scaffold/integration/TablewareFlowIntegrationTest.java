@@ -50,6 +50,7 @@ class TablewareFlowIntegrationTest {
     @Autowired DiningTableService tables; @Autowired DishService dishes; @Autowired DishCategoryService categories;
     @Autowired OrderService orders; @Autowired PaymentService payments; @Autowired OrderOperationLogMapper logs; @Autowired RevenueLedgerService ledger;
     @MockBean WsService websocket;
+    @Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
     private static final java.util.concurrent.atomic.AtomicInteger CLIENT = new java.util.concurrent.atomic.AtomicInteger(1);
     record Fixture(DiningTable table, Dish dish) {}
     record Visit(String token, String session) {}
@@ -92,6 +93,14 @@ class TablewareFlowIntegrationTest {
         for (Object guests : Arrays.asList(null, 0, 100, 4.5)) assertNotEquals(200, call("POST", "/app/h5/submit", v.token, payload(f, v, id, guests)).path("code").asInt());
         assertEquals(0, tables.getById(f.table.getId()).getStatus()); assertEquals(0, orders.count(new LambdaQueryWrapper<com.scaffold.modules.order.entity.Order>().eq(com.scaffold.modules.order.entity.Order::getTableId, f.table.getId())));
         JsonNode first = submit(f, v, id, 4); assertEquals(26, first.path("actualAmount").asInt()); assertEquals(4, first.path("tablewareQuantity").asInt()); assertEquals(4, tables.getByCode(f.table.getCode()).getGuestCount());
+    }
+    @Test void missingPeopleCannotConsumeFiniteRedisInventory() throws Exception {
+        Fixture f = fixture(); f.dish.setStock(2); dishes.updateById(f.dish); Visit v = visit(f); cart(f, v, 1); String requestId = UUID.randomUUID().toString();
+        assertNotEquals(200, call("POST", "/app/h5/submit", v.token, payload(f, v, requestId, null)).path("code").asInt());
+        assertEquals(2, dishes.getById(f.dish.getId()).getStock());
+        String stock = redis.opsForValue().get("dish:stock:" + f.dish.getId()); assertTrue(stock == null || stock.equals("2"));
+        submit(f, v, requestId, 4);
+        assertEquals(1, dishes.getById(f.dish.getId()).getStock()); assertEquals("1", redis.opsForValue().get("dish:stock:" + f.dish.getId()));
     }
     @Test void oneVisitChargesOnceAcrossVisitorsAdditionAndNetworkRetry() throws Exception {
         Fixture f = fixture(); Visit a = visit(f), b = visit(f); assertEquals(0, tables.getById(f.table.getId()).getStatus());
