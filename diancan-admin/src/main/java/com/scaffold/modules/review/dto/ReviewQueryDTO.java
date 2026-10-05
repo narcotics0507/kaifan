@@ -35,4 +35,3 @@ public class ReviewQueryDTO implements Serializable {
     @DateTimeFormat(pattern = "yyyy-MM-dd")
     private LocalDate endDate;
 }
-

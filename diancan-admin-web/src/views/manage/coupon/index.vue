@@ -1137,4 +1137,3 @@ html.dark .task-detail-summary__error {
   color: #fecaca;
 }
 </style>
-

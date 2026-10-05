@@ -95,4 +95,3 @@ export async function countOfflineAdminOrders(): Promise<number> {
   const store = tx.objectStore(STORE_NAME);
   return runRequest(store.count());
 }
-

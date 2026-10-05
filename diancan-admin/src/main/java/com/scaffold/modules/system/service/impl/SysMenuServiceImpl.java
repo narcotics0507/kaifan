@@ -140,13 +140,13 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         List<SysMenu> filteredMenus = menus.stream()
                 .filter(m -> !MenuTypeEnum.BUTTON.getValue().equals(m.getType()))
                 .collect(Collectors.toList());
-        
+
         // 构建路由树
         List<RouteVO> routes = buildRouteTree(filteredMenus);
-        
+
         // 为订单模块注入订单详情子路由（隐藏菜单，不在数据库中管理）
         injectHiddenRoutes(routes);
-        
+
         // 添加首页路由
         RouteVO homeRoute = new RouteVO();
         homeRoute.setName("home");
@@ -161,7 +161,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         homeRoute.setMeta(homeMeta);
         routes.add(0, homeRoute);
         restaurantFeatures.applyMenuVisibility(routes);
-        
+
         UserRouteVO result = new UserRouteVO();
         result.setRoutes(routes);
         result.setHome(resolveHomeRoute(userId, routes));
@@ -297,20 +297,20 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      */
     private RouteVO convertToRoute(SysMenu menu, List<SysMenu> allMenus) {
         RouteVO route = new RouteVO();
-        
+
         // 生成路由名称（使用下划线连接的格式，如 manage_user）
         String routeName = generateRouteName(menu);
         route.setName(routeName);
         route.setPath(menu.getPath());
         route.setId(String.valueOf(menu.getId()));
-        
+
         // 设置meta
         RouteVO.RouteMeta meta = new RouteVO.RouteMeta();
         meta.setTitle(menu.getName());
         meta.setIcon(menu.getIcon());
         meta.setOrder(menu.getOrderNum());
         route.setMeta(meta);
-        
+
         // 查找子菜单
         List<SysMenu> children = allMenus.stream()
                 .filter(m -> menu.getId().equals(m.getParentId()))
@@ -320,7 +320,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
                     return orderA - orderB;
                 })
                 .collect(Collectors.toList());
-        
+
         if (CollUtil.isNotEmpty(children)) {
             // 有子菜单，这是一个目录
             route.setComponent("layout.base");
@@ -360,10 +360,10 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         if (StrUtil.isBlank(path)) {
             return "menu_" + menu.getId();
         }
-        
+
         // 移除开头的斜杠，将斜杠替换为下划线
         String name = path.replaceFirst("^/", "").replace("/", "_");
-        
+
         // 统一使用 manage 前缀
         // /system -> manage, /system/user -> manage_user
         // /log -> log, /log/login -> log_login
@@ -372,7 +372,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         } else if (name.equals("system")) {
             name = "manage";
         }
-        
+
         return name;
     }
 
@@ -410,7 +410,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         }
 
         List<MenuTreeVO> voList = BeanUtil.copyToList(menus, MenuTreeVO.class);
-        
+
         // 找出所有根节点
         List<MenuTreeVO> rootList = voList.stream()
                 .filter(m -> (m.getParentId() == null || m.getParentId() == 0)

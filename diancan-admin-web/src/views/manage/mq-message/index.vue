@@ -349,4 +349,3 @@ html.dark .biz-result-cell__detail {
   color: rgba(206, 216, 236, 0.68);
 }
 </style>
-

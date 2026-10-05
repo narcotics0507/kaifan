@@ -42,7 +42,7 @@ public class SysDictDataServiceImpl extends ServiceImpl<SysDictDataMapper, SysDi
         SysDictData dictData = new SysDictData();
         BeanUtil.copyProperties(dto, dictData);
         save(dictData);
-        
+
         // 刷新缓存
         refreshCacheByTypeId(dto.getTypeId());
         log.info("字典数据创建成功: {}", dto.getLabel());
@@ -59,7 +59,7 @@ public class SysDictDataServiceImpl extends ServiceImpl<SysDictDataMapper, SysDi
         SysDictData dictData = new SysDictData();
         BeanUtil.copyProperties(dto, dictData);
         updateById(dictData);
-        
+
         // 刷新缓存
         refreshCacheByTypeId(existData.getTypeId());
         log.info("字典数据更新成功: {}", dto.getId());
@@ -75,7 +75,7 @@ public class SysDictDataServiceImpl extends ServiceImpl<SysDictDataMapper, SysDi
         }
 
         removeById(dictDataId);
-        
+
         // 刷新缓存
         refreshCacheByTypeId(dictData.getTypeId());
         log.info("字典数据删除成功: {}", dictDataId);
@@ -111,7 +111,7 @@ public class SysDictDataServiceImpl extends ServiceImpl<SysDictDataMapper, SysDi
 
         // 查询字典数据
         List<DictDataVO> dataList = getByTypeId(dictType.getId());
-        
+
         // 缓存结果
         redisUtils.set(cacheKey, dataList, CacheConstants.CACHE_EXPIRE);
         return dataList;

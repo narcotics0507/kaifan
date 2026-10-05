@@ -34,7 +34,7 @@ public class RouteController {
     @GetMapping("/getConstantRoutes")
     public Result<List<RouteVO>> getConstantRoutes() {
         List<RouteVO> routes = new ArrayList<>();
-        
+
         // 登录页
         RouteVO login = new RouteVO();
         login.setName("login");
@@ -48,7 +48,7 @@ public class RouteController {
         loginMeta.setHideInMenu(true);
         login.setMeta(loginMeta);
         routes.add(login);
-        
+
         // 403
         RouteVO forbidden = new RouteVO();
         forbidden.setName("403");
@@ -62,7 +62,7 @@ public class RouteController {
         forbiddenMeta.setHideInMenu(true);
         forbidden.setMeta(forbiddenMeta);
         routes.add(forbidden);
-        
+
         // 404
         RouteVO notFound = new RouteVO();
         notFound.setName("404");
@@ -76,7 +76,7 @@ public class RouteController {
         notFoundMeta.setHideInMenu(true);
         notFound.setMeta(notFoundMeta);
         routes.add(notFound);
-        
+
         // 500
         RouteVO serverError = new RouteVO();
         serverError.setName("500");
@@ -90,7 +90,7 @@ public class RouteController {
         serverErrorMeta.setHideInMenu(true);
         serverError.setMeta(serverErrorMeta);
         routes.add(serverError);
-        
+
         return Result.success(routes);
     }
 

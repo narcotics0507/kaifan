@@ -24,4 +24,3 @@ public class AdminReviewListVO implements Serializable {
     private String customerOpenid;
     private LocalDateTime createTime;
 }
-

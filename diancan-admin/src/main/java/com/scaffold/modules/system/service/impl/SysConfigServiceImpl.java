@@ -47,7 +47,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
         SysConfig config = new SysConfig();
         BeanUtil.copyProperties(dto, config);
         save(config);
-        
+
         // 更新缓存
         updateCache(dto.getConfigKey(), dto.getConfigValue());
         log.info("配置创建成功: {}", dto.getConfigKey());
@@ -74,7 +74,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
         SysConfig config = new SysConfig();
         BeanUtil.copyProperties(dto, config);
         updateById(config);
-        
+
         // 更新缓存
         updateCache(dto.getConfigKey(), dto.getConfigValue());
         log.info("配置更新成功: {}", dto.getId());
@@ -90,7 +90,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
         }
 
         removeById(configId);
-        
+
         // 删除缓存
         deleteCache(config.getConfigKey());
         log.info("配置删除成功: {}", configId);

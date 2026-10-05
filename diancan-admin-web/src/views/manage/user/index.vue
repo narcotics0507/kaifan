@@ -422,4 +422,3 @@ html.dark .user-list-card :deep(.n-data-table .n-data-table-tbody .n-data-table-
   background: rgba(var(--admin-accent-rgb), 0.08) !important;
 }
 </style>
-

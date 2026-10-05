@@ -247,4 +247,3 @@ onMounted(loadData);
   width: 100%;
 }
 </style>
-

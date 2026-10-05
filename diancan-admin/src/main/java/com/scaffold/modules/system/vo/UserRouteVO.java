@@ -11,10 +11,10 @@ import java.util.List;
  */
 @Data
 public class UserRouteVO {
-    
+
     /** 路由列表 */
     private List<RouteVO> routes;
-    
+
     /** 首页路由名称 */
     private String home;
 }
