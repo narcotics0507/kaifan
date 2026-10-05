@@ -1,0 +1,51 @@
+/* Keep the compact layout and touch targets; let food and the bill carry the emphasis. */
+html.customer-mode{--menu-paper:#fffdf9;--menu-ink:#342c26;--menu-muted:#74675c;--menu-line:#ebe4db}
+html.customer-mode body,html.customer-mode #app{background:#f5f2ed;color:var(--menu-ink)}
+html.customer-mode .app-shell:not(.manager){background:var(--menu-paper)}
+html.customer-mode .brand-header{border-color:var(--menu-line);gap:12px}
+html.customer-mode .brand-header h1{font-weight:700;letter-spacing:.025em}
+html.customer-mode .brand-header p{color:var(--menu-muted)}
+html.customer-mode .table-chip{background:#f1e4d5;color:#744c31;border-radius:8px}
+html.customer-mode .search-row{background:var(--menu-paper);padding-top:10px;padding-bottom:10px}
+html.customer-mode .search-row label{border:0;background:#f3efe9;border-radius:10px}
+html.customer-mode .search-row>button{color:var(--menu-muted);font-size:.8125rem}
+html.customer-mode .category-list{background:#f5f1ea;padding:5px 4px}
+html.customer-mode .category-list button{border-radius:8px;color:#74675c;line-height:1.5}
+html.customer-mode .category-list button small{color:#897b6e;font-size:.6875rem}
+html.customer-mode .category-list .selected{background:#fffdf9;color:#9b4824}
+html.customer-mode .category-list .selected:before{left:0;top:16px;bottom:16px;border-radius:3px;background:#ad582e}
+html.customer-mode .dish-scroll{padding-left:14px;padding-right:14px}
+html.customer-mode .section-heading{margin:12px 0 4px;font-weight:650;letter-spacing:.02em}
+html.customer-mode .section-heading small{font-size:.6875rem;color:var(--menu-muted)}
+html.customer-mode .dish-row{padding:12px 0;gap:12px;border-color:var(--menu-line)}
+html.customer-mode .dish-photo{width:78px;height:78px;border-radius:10px;background:#f0ebe3}
+html.customer-mode .dish-photo img{display:block}
+html.customer-mode .dish-title{color:var(--menu-ink);font-weight:650;line-height:1.5}
+html.customer-mode .dish-copy p{color:var(--menu-muted);line-height:1.5}
+html.customer-mode .dish-bottom strong{color:#a94d24;font-weight:700}
+html.customer-mode .dish-bottom strong em{color:var(--menu-muted)}
+html.customer-mode .stepper button::before{background:var(--menu-paper);border-color:#d9c7b6}
+html.customer-mode .stepper .plus::before{background:#a94d24;border-color:#a94d24}
+html.customer-mode .cart-bar{background:#382e26;border-radius:12px;padding:10px 12px;margin:8px 10px}
+html.customer-mode .cart-bar .primary{background:#f0c489;color:#442c1b;border-radius:8px}
+html.customer-mode .cart-total small{color:#e1cdb9}
+html.customer-mode .bottom-tabs{background:var(--menu-paper);border-color:var(--menu-line)}
+html.customer-mode .bottom-tabs button{color:var(--menu-muted);font-size:.75rem}
+html.customer-mode .bottom-tabs .current{color:#a94d24}
+html.customer-mode .orders-head h2{font-weight:650}
+html.customer-mode .order-summary{background:#f3e8dc;border-radius:12px;padding:14px;line-height:1.6;align-items:center}
+html.customer-mode .order-summary strong{font-size:1.0625rem;font-variant-numeric:tabular-nums;color:#94421f}
+html.customer-mode .plain-hint{color:var(--menu-muted)}
+html.customer-mode .bill{border-color:var(--menu-line);border-radius:12px;background:#fff}
+html.customer-mode .bill-top{border-bottom-style:solid;border-color:var(--menu-line)}
+html.customer-mode .bill-top small{font-size:.6875rem;color:#807368}
+html.customer-mode .bill-line b{font-weight:600}
+html.customer-mode .bill-total{border-top-style:solid;border-color:var(--menu-line);padding-top:14px;font-variant-numeric:tabular-nums}
+html.customer-mode .sheet,html.customer-mode .sheet header,html.customer-mode .cart-foot{background:var(--menu-paper)}
+html.customer-mode .detail-photo{object-fit:contain;background:#f3eee7;max-height:320px}
+html.customer-mode .support-note{border-color:var(--menu-line);color:var(--menu-muted)}
+html.customer-mode .menu-tail{color:#817164;font-size:.75rem;padding-bottom:10px}
+html.customer-mode .scan-hint{background:#f5eadc;color:#796049;font-size:.75rem;padding-top:8px;padding-bottom:8px}
+@media(min-width:700px){html.customer-mode .dish-scroll{padding-left:24px;padding-right:24px;gap:0 24px}html.customer-mode .dish-photo{width:102px;height:102px}html.customer-mode .dish-row{min-height:132px;gap:14px}html.customer-mode .dish-title{font-size:1.0625rem}html.customer-mode .dish-bottom strong{font-size:1.125rem}}
+@media(max-width:359px){html.customer-mode .dish-photo{width:60px;height:68px}html.customer-mode .dish-row{gap:8px}html.customer-mode .dish-scroll{padding-left:9px;padding-right:9px}}
+@media(orientation:landscape) and (max-height:550px){html.customer-mode .dish-photo{width:68px;height:68px}html.customer-mode .dish-row{min-height:94px;padding:8px 0}html.customer-mode .search-row{padding-top:4px;padding-bottom:4px}html.customer-mode .cart-bar{margin-top:4px;margin-bottom:4px;padding-top:6px;padding-bottom:6px}html.customer-mode .detail-photo{max-height:120px}}

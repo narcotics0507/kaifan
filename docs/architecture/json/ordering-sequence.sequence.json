@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "扫码 → 下单 → 后厨播报",
+    "subtitle": "顾客从扫码桌台到后厨 STOMP 广播的完整调用链",
+    "output": "ordering-sequence.html",
+    "viewBox": [920, 1240]
+  },
+  "participants": [
+    { "id": "user",    "type": "external",  "label": "顾客",     "sublabel": "扫码点餐" },
+    { "id": "mini",    "type": "frontend",  "label": "微信小程序", "sublabel": "diancan-miniapp" },
+    { "id": "api",     "type": "backend",   "label": "API 服务",  "sublabel": "Spring Boot :8080" },
+    { "id": "order",   "type": "backend",   "label": "订单服务",  "sublabel": "Order/Cart/Payment" },
+    { "id": "kitchen", "type": "backend",   "label": "厨房服务",  "sublabel": "Kitchen/Print" },
+    { "id": "redis",   "type": "database",  "label": "Redis",    "sublabel": "PubSub 广播" },
+    { "id": "kclient", "type": "frontend",  "label": "后厨客户端", "sublabel": "STOMP WebSocket" },
+    { "id": "wxpay",   "type": "external",  "label": "微信支付",  "sublabel": "JSAPI 收银台" }
+  ],
+  "segments": [
+    { "from": 150, "to": 335, "label": "01 / 扫码与点餐" },
+    { "from": 360, "to": 555, "label": "02 / 下单与广播" },
+    { "from": 580, "to": 870, "label": "03 / 接单与支付" }
+  ],
+  "messages": [
+    { "from": "user",  "to": "mini",    "y": 185, "label": "扫码桌台",        "variant": "emphasis" },
+    { "from": "mini",  "to": "api",     "y": 225, "label": "POST /table/bind" },
+    { "from": "api",   "to": "order",   "y": 265, "label": "校验桌台 + 绑定用户" },
+    { "from": "order", "to": "api",     "y": 305, "label": "绑定成功",      "variant": "return" },
+
+    { "from": "user",  "to": "mini",    "y": 370, "label": "加菜 + 提交订单" },
+    { "from": "mini",  "to": "api",     "y": 410, "label": "POST /order/create", "variant": "emphasis" },
+    { "from": "api",   "to": "order",   "y": 450, "label": "创建 Order/Item" },
+    { "from": "order", "to": "redis",   "y": 490, "label": "publish NEW_ORDER", "variant": "emphasis" },
+    { "from": "redis", "to": "kclient", "y": 530, "label": "STOMP 推送到 /topic/kitchen", "variant": "emphasis" },
+
+    { "from": "kclient","to": "api",    "y": 605, "label": "GET /kitchen/tasks" },
+    { "from": "kclient","to": "api",    "y": 645, "label": "PUT /kitchen/task/{id}/accept", "variant": "emphasis" },
+    { "from": "api",   "to": "kitchen", "y": 685, "label": "推进 OrderItem.status=1" },
+    { "from": "kitchen","to": "api",    "y": 725, "label": "ok", "variant": "return" },
+
+    { "from": "user",  "to": "mini",    "y": 780, "label": "点击支付" },
+    { "from": "mini",  "to": "api",     "y": 820, "label": "POST /payment/prepay" },
+    { "from": "api",   "to": "wxpay",   "y": 860, "label": "统一下单 JSAPI", "variant": "emphasis" }
+  ],
+  "activations": [
+    { "participant": "mini",    "from": 220, "to": 875, "type": "frontend" },
+    { "participant": "api",     "from": 225, "to": 870, "type": "backend" },
+    { "participant": "order",   "from": 265, "to": 495, "type": "backend" },
+    { "participant": "redis",   "from": 485, "to": 535, "type": "database" },
+    { "participant": "kclient", "from": 530, "to": 690, "type": "frontend" },
+    { "participant": "kitchen", "from": 680, "to": 730, "type": "backend" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "核心调用链", "items": ["顾客 → 小程序 → API → Order/Kitchen → Redis → 后厨 STOMP", "返回路径使用 return 变体弱化", "激活条标识各服务在调用期间的活跃区间"] },
+    { "dot": "amber",   "title": "消息分发",  "items": ["WsService 通过 Redis Pub/Sub 跨实例广播 NEW_ORDER", "厨房订阅 /topic/kitchen 实时收到新单"] },
+    { "dot": "cyan",    "title": "支付链路",  "items": ["下单后由 API 调起微信 JSAPI 收银台", "支付回调 /order/pay-callback 推进 Order.status=1"] }
+  ]
+}

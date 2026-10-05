@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "后厨播报与制作工作流",
+    "subtitle": "从下单到全部出餐的泳道协作",
+    "output": "kitchen-broadcast-workflow.html"
+  },
+  "lanes": [
+    { "id": "customer", "label": "顾客 / 小程序" },
+    { "id": "api",      "label": "API 服务" },
+    { "id": "kitchen",  "label": "厨房服务" },
+    { "id": "exception","label": "异常处理", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "intake",  "label": "下单与广播", "fromCol": 0, "toCol": 2 },
+    { "id": "cooking", "label": "制作与划单", "fromCol": 2, "toCol": 4 },
+    { "id": "done",    "label": "完成出餐",   "fromCol": 4, "toCol": 5 }
+  ],
+  "mainPath": ["submit", "create-order", "auto-check", "accept-task", "cooking-complete"],
+  "nodes": [
+    { "id": "submit",          "lane": "customer", "col": 0, "type": "frontend", "label": "提交订单",     "sublabel": "购物车 → 订单" },
+    { "id": "create-order",    "lane": "api",      "col": 2, "type": "backend",  "label": "创建订单",     "sublabel": "Order + OrderItem · ws 广播", "tag": "NEW_ORDER" },
+    { "id": "auto-check",      "lane": "kitchen",  "col": 2, "type": "backend",  "label": "自动接单开关", "sublabel": "isAutoAccept", "tag": "enabled?" },
+
+    { "id": "accept-task",     "lane": "kitchen",  "col": 4, "type": "backend",  "label": "后厨接单",     "sublabel": "PUT /accept · 自动接单跳此步", "tag": "blocking" },
+    { "id": "cooking-complete","lane": "kitchen",  "col": 5, "type": "backend",  "label": "制作 → 划单",  "sublabel": "OrderItem 1→2 · ALL_COMPLETED", "tag": "success" },
+
+    { "id": "rush",            "lane": "exception","col": 4, "type": "security", "label": "顾客催单",     "sublabel": "RUSH_ORDER 事件" }
+  ],
+  "edges": [
+    { "from": "submit",         "to": "create-order",    "variant": "emphasis" },
+    { "from": "create-order",   "to": "auto-check",      "label": "WS 推送", "variant": "emphasis", "fromSide": "bottom", "toSide": "top", "labelDy": 5 },
+    { "from": "auto-check",     "to": "accept-task",     "variant": "emphasis" },
+    { "from": "accept-task",    "to": "cooking-complete","variant": "emphasis" },
+
+    { "from": "rush",           "to": "accept-task",     "variant": "security", "fromSide": "top", "toSide": "bottom" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "主路径", "items": ["下单 → 广播 → 接单 → 制作 → 划单 → 全部出餐"] },
+    { "dot": "amber",   "title": "自动接单", "items": ["isAutoAccept 开启时跳过手动接单，OrderItem.status 0 → 1 自动推进"] },
+    { "dot": "rose",    "title": "异常旁路", "items": ["顾客催单触发 RUSH_ORDER 推送到后厨", "菜品估清触发 SOLD_OUT 推送至小程序"] }
+  ]
+}

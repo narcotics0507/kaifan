@@ -1,0 +1,34 @@
+# Build and dependencies
+**/node_modules/
+**/target/
+**/dist/
+**/dist-ssr/
+**/coverage/
+**/.vite/
+**/.jqwik-database
+release/
+# Private local configuration
+.env
+.env.*
+!.env.example
+!diancan-admin-web/.env
+!diancan-admin-web/.env.dev
+!diancan-admin-web/.env.test
+!diancan-admin-web/.env.prod
+**/*.local
+**/*.local.*
+**/project.private.config.json
+**/application-local.yml
+**/*.private.*
+**/*.pem
+**/*.key
+**/runtime/
+**/backups/
+**/logs/
+*.log
+.DS_Store
+.idea/
+.vscode/
+**/__pycache__/
+*.py[cod]
+kaifan-release.tar.gz

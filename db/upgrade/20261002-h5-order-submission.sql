@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS h5_submission (
+ user_id BIGINT NOT NULL,
+ request_id VARCHAR(64) NOT NULL,
+ fingerprint VARCHAR(64) NOT NULL,
+ table_id BIGINT NOT NULL,
+ order_id BIGINT NULL,
+ create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ PRIMARY KEY(user_id, request_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

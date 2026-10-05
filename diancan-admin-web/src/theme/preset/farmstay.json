@@ -1,0 +1,33 @@
+{
+  "name": "灶边有味",
+  "desc": "米白与暖棕，适合畔水居35号日常点单和结账。",
+  "version": "1.0.0",
+  "themeScheme": "light",
+  "themeColor": "#a94d24",
+  "themeRadius": 12,
+  "isInfoFollowPrimary": false,
+  "page": {
+    "animate": false
+  },
+  "otherColor": {
+    "info": "#2f7a8a",
+    "success": "#2f8f6b",
+    "warning": "#b7791f",
+    "error": "#c7463b"
+  },
+  "tokens": {
+    "light": {
+      "colors": {
+        "container": "rgb(255, 250, 243)",
+        "layout": "rgb(244, 239, 231)",
+        "inverted": "rgb(62, 48, 38)",
+        "base-text": "rgb(53, 42, 35)"
+      },
+      "boxShadow": {
+        "header": "none",
+        "sider": "none",
+        "tab": "none"
+      }
+    }
+  }
+}

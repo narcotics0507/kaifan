@@ -1,0 +1,62 @@
+/* Everyday service screens share the customer menu's warm, quiet visual language. */
+html:not(.dark){--restaurant-paper:#fffdf9;--restaurant-ink:#342c26;--restaurant-muted:#72665c;--restaurant-line:#e9e2d9;--restaurant-photo-bg:#f2ede6}
+html:not(.dark) .global-content-page{background:#f5f2ed}
+html:not(.dark) .global-header-shell{background:#fffdf9}
+html:not(.dark) .global-header-breadcrumb{background:transparent;border:0;box-shadow:none;padding-left:4px}
+html .n-card.n-card{border-radius:14px}
+html .n-card>.n-card-header{padding-bottom:16px}
+html .n-card-header__main{font-weight:650;letter-spacing:.015em}
+html .n-button{border-radius:9px;min-height:38px;font-weight:500}
+html .n-button:focus-visible{outline:2px solid #a94d24;outline-offset:3px}
+html .n-modal .n-button,html .food-actions .n-button{min-height:44px}
+html .merchant-mobile-nav{padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}
+html .merchant-mobile-nav a{font-weight:500;border-radius:9px}
+html .merchant-mobile-nav a.active{background:#f5e9dd;font-weight:650}
+html .mobile-store-title small{font-size:.6875rem;color:var(--restaurant-muted)}
+html .mobile-store-title strong{font-size:1rem;line-height:1.5}
+html:not(.dark) .board-card .table-card{border-color:#dce6d8}
+html:not(.dark) .board-card .table-card[data-status='1']{border-color:#e4bea5}
+html .board-card .board-card__title{font-size:1.25rem}
+html .board-card .table-name{font-size:1.1875rem;font-weight:650}
+html .board-card .table-meta{font-variant-numeric:tabular-nums}
+html:not(.dark) .checkout-hero__badge,html:not(.dark) .ops-hero__badge{border:0!important;background:#f1e8dd!important}
+html:not(.dark) .checkout-hero__desc,html:not(.dark) .ops-hero__desc{color:var(--restaurant-muted)!important}
+html:not(.dark) .checkout-hero__eyebrow,html:not(.dark) .ops-hero__eyebrow{display:none}
+html .checkout-hero__title,html .ops-hero__title{font-size:1.375rem!important;font-weight:650!important}
+html .kitchen-voice-panel{border:0;border-radius:12px;padding:12px 16px}
+html:not(.dark) .kitchen-voice-panel{background:#f0e9df}
+html .kitchen-voice-panel .voice-controls strong{font-size:.9375rem}
+html .kitchen-bill,html .kitchen-batch{border:1px solid var(--restaurant-line)!important}
+html .kitchen-batch{border-left:4px solid #ad582e!important}
+html .bill-heading>strong{font-weight:650}
+html .queue-badge{font-variant-numeric:tabular-nums;font-size:2rem!important}
+html .bill-food{padding:14px 0}.bill-food:last-child{border-bottom:0}
+html .bill-food strong{font-weight:600}
+html .paper-filter .n-input{min-height:42px}
+html .paper-filter .n-button{min-height:42px}
+.dish-management .mobile-dish-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:14px}
+.dish-management .mobile-record-card{margin:0;padding:16px;border:1px solid var(--restaurant-line);border-radius:12px;background:var(--restaurant-paper);min-width:0;display:flex;flex-direction:column;gap:12px}
+.dish-management .mobile-record-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;line-height:1.5;font-size:1rem}
+.dish-management .mobile-record-head strong{font-weight:650;overflow-wrap:anywhere}
+.dish-management .mobile-record-amount{color:#a94d24;font-size:1.0625rem;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dish-management .mobile-record-meta{font-size:.8125rem;line-height:1.6;color:var(--restaurant-muted);margin-top:6px}
+.dish-management .mobile-record-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:2px}
+.dish-management .mobile-record-actions .n-button{min-height:42px}
+.dish-management .n-pagination,.dish-management .dish-loading,.dish-management .n-empty{grid-column:1/-1}
+.dish-management .n-pagination{justify-content:center;padding-top:8px}
+.dish-loading{margin:0;color:var(--restaurant-muted);font-size:.875rem}
+.dish-search-card .n-form-item-feedback-wrapper{min-height:6px}
+.dish-edit-modal>.n-card__footer{position:sticky;bottom:0;background:var(--restaurant-paper);border-top:1px solid var(--restaurant-line);z-index:2}
+@media(max-width:639px){
+ html .global-content-page{padding:12px 10px 18px!important}
+ .dish-management .n-card>.n-card-header{padding:16px 14px 12px;flex-wrap:wrap;gap:10px}
+ .dish-management .n-card>.n-card__content{padding:0 14px 14px}
+ .dish-management .dish-search-card>.n-card__content{padding-top:14px}
+ .dish-management .mobile-record-card{padding:13px;gap:10px}
+ .dish-management .mobile-dish-cards{grid-template-columns:minmax(0,1fr)}
+ .dish-search-card .n-form-item-label{font-size:.8125rem;padding-bottom:5px}
+ .dish-search-card .search-actions{justify-content:flex-start}
+ html .n-button{min-height:44px}
+ .dish-edit-modal>.n-card__footer .n-space{width:100%;justify-content:flex-end}
+ html .paper-page-head p{font-size:.8125rem}
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "订单状态生命周期",
+    "subtitle": "Order + OrderItem 主流程与异常分支",
+    "output": "order-lifecycle.html"
+  },
+  "lanes": [
+    { "id": "main",     "label": "订单主体生命周期" },
+    { "id": "waiting",  "label": "等待/异常分支" },
+    { "id": "terminal", "label": "终态" }
+  ],
+  "states": [
+    { "id": "p0",  "type": "start",    "label": "待支付",   "sublabel": "Order.status = 0", "lane": "main",     "col": 0, "step": "00" },
+    { "id": "p1",  "type": "active",   "label": "待制作",   "sublabel": "OrderItem.status = 0", "lane": "main", "col": 1, "step": "01" },
+    { "id": "p2",  "type": "active",   "label": "制作中",   "sublabel": "OrderItem.status = 1", "lane": "main", "col": 2, "step": "02" },
+    { "id": "p3",  "type": "active",   "label": "全部出餐", "sublabel": "OrderItem.status = 2", "lane": "main", "col": 3, "step": "03" },
+    { "id": "p4",  "type": "success",  "label": "已支付",   "sublabel": "Order.status = 1", "lane": "main", "col": 4, "step": "04" },
+
+    { "id": "w1",  "type": "waiting",  "label": "等待接单", "sublabel": "后厨手动接单", "lane": "waiting",  "col": 1 },
+    { "id": "w2",  "type": "waiting",  "label": "顾客催单", "sublabel": "RUSH_ORDER 事件", "lane": "waiting", "col": 2 },
+
+    { "id": "t0",  "type": "failure",  "label": "已取消",   "sublabel": "Order.status = 2", "lane": "terminal", "col": 0 },
+    { "id": "t1",  "type": "failure",  "label": "已退款",   "sublabel": "Order.status = 3", "lane": "terminal", "col": 2 }
+  ],
+  "transitions": [
+    { "from": "p0", "to": "p1",  "label": "支付成功", "variant": "emphasis", "labelDy": 55 },
+    { "from": "p0", "to": "t0",  "label": "超时/顾客取消", "variant": "security", "fromSide": "bottom", "toSide": "top" },
+
+    { "from": "p1", "to": "p2",  "label": "接单 / 自动接单", "variant": "emphasis", "labelDy": 55 },
+    { "from": "p1", "to": "w1",  "label": "未自动接单", "variant": "security", "fromSide": "bottom", "toSide": "top" },
+    { "from": "w1", "to": "p2",  "label": "后厨接单", "variant": "emphasis", "fromSide": "right", "toSide": "left" },
+    { "from": "w2", "to": "p2",  "label": "催单", "variant": "security", "fromSide": "left", "toSide": "bottom" },
+
+    { "from": "p2", "to": "p3",  "label": "划单 (ALL_COMPLETED)", "variant": "emphasis", "labelDy": 55 },
+
+    { "from": "p3", "to": "p4",  "label": "餐前付 / 结账", "variant": "emphasis", "labelDy": 60 },
+    { "from": "p4", "to": "t1",  "label": "退款申请", "variant": "security", "fromSide": "bottom", "toSide": "top", "labelDy": -35 }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "主流程", "items": ["待支付 → 待制作 → 制作中 → 全部出餐 → 已支付"] },
+    { "dot": "amber",   "title": "等待分支", "items": ["等待接单：未开启自动接单时，由后厨手动接单触发制作中", "顾客催单：发送 WS 事件给后厨"] },
+    { "dot": "rose",    "title": "终态分支", "items": ["已取消：超时或顾客主动取消", "已退款：已支付后申请退款"] }
+  ]
+}

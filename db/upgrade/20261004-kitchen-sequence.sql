@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS kitchen_sequence (
+ sequence_date DATE NOT NULL PRIMARY KEY,
+ last_number INT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

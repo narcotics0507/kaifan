@@ -1,0 +1,1 @@
+{"name":"kaifan-customer-web","private":true,"type":"module","version":"1.0.0","scripts":{"dev":"vite --host 127.0.0.1 --port 9530","build":"vite build"},"dependencies":{"vue":"3.5.27"},"devDependencies":{"vite":"7.3.0"}}

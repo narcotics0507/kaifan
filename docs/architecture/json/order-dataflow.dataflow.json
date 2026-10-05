@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "订单数据流",
+    "subtitle": "从下单到存储与消费的完整数据通路",
+    "output": "order-dataflow.html",
+    "viewBox": [1100, 720]
+  },
+  "stages": [
+    { "label": "Sources" },
+    { "label": "Ingest" },
+    { "label": "Process" },
+    { "label": "Store" },
+    { "label": "Consume" }
+  ],
+  "nodes": [
+    { "id": "user-order", "type": "frontend",  "label": "顾客下单",         "sublabel": "微信小程序",   "stage": 0, "row": 0 },
+    { "id": "staff-op",   "type": "frontend",  "label": "管理员操作",       "sublabel": "管理后台",     "stage": 0, "row": 1 },
+    { "id": "sched",      "type": "backend",   "label": "系统定时",         "sublabel": "调度任务",     "stage": 0, "row": 2 },
+
+    { "id": "api-ingest", "type": "backend",   "label": "API 接入",         "sublabel": "/api/app + /api/admin", "stage": 1, "row": 0, "tag": "hot path" },
+    { "id": "ws-bcast",   "type": "messagebus", "label": "WebSocket 广播",   "sublabel": "WsService",    "stage": 1, "row": 1 },
+
+    { "id": "order-proc", "type": "backend",   "label": "订单 / 支付模块",  "sublabel": "Order/Cart/Payment", "stage": 2, "row": 0, "tag": "transient" },
+    { "id": "kitchen",    "type": "backend",   "label": "后厨模块",         "sublabel": "Kitchen/Print","stage": 2, "row": 1 },
+    { "id": "report",     "type": "backend",   "label": "报表 / 审计",      "sublabel": "Report/Audit", "stage": 2, "row": 2 },
+
+    { "id": "mysql",      "type": "database",   "label": "MySQL",           "sublabel": "业务主库",      "stage": 3, "row": 0, "tag": "system of record" },
+    { "id": "redis",      "type": "database",   "label": "Redis",           "sublabel": "PubSub + Session", "stage": 3, "row": 1 },
+    { "id": "rocketmq",   "type": "messagebus", "label": "RocketMQ",        "sublabel": "异步发券 / 导出", "stage": 3, "row": 2 },
+
+    { "id": "kitchen-cl", "type": "frontend",  "label": "后厨客户端",       "sublabel": "STOMP ws",     "stage": 4, "row": 0 },
+    { "id": "report-ui",  "type": "frontend",  "label": "管理报表",         "sublabel": "图表 / 导出",   "stage": 4, "row": 1 },
+    { "id": "miniapp-ui", "type": "frontend",  "label": "顾客端",           "sublabel": "订单状态",     "stage": 4, "row": 2 }
+  ],
+  "flows": [
+    { "from": "user-order", "to": "api-ingest",  "label": "下单请求",     "classification": "PII touch",    "variant": "emphasis" },
+    { "from": "staff-op",   "to": "api-ingest",  "label": "管理命令",     "classification": "approved only", "variant": "default" },
+    { "from": "sched",      "to": "api-ingest",  "label": "定时检查",     "classification": "non-PII",      "variant": "dashed" },
+
+    { "from": "api-ingest", "to": "order-proc",  "label": "落库 / 计算",  "classification": "transient",    "variant": "emphasis" },
+    { "from": "api-ingest", "to": "kitchen",     "label": "推任务",       "classification": "transient",    "variant": "emphasis" },
+
+    { "from": "order-proc", "to": "mysql",       "label": "SQL 写入",     "classification": "system of record", "variant": "emphasis" },
+    { "from": "kitchen",    "to": "mysql",       "label": "状态写入",     "classification": "system of record", "variant": "default" },
+    { "from": "report",     "to": "mysql",       "label": "查询",         "classification": "approved only", "variant": "default", "labelDx": -150, "labelDy": -50 },
+
+    { "from": "kitchen",    "to": "ws-bcast",    "label": "publish",      "classification": "non-PII",      "variant": "emphasis" },
+    { "from": "ws-bcast",   "to": "redis",       "label": "Pub/Sub",      "classification": "non-PII",      "variant": "emphasis", "labelDy": -200 },
+    { "from": "redis",      "to": "kitchen-cl",  "label": "subscribe",    "classification": "non-PII",      "variant": "emphasis" },
+    { "from": "redis",      "to": "miniapp-ui",  "label": "状态推送",     "classification": "non-PII",      "variant": "default" },
+
+    { "from": "order-proc", "to": "rocketmq",    "label": "发券事件",     "classification": "non-PII",      "variant": "dashed", "labelDx": -200, "labelDy": 50 },
+    { "from": "rocketmq",   "to": "report",      "label": "异步消费",     "classification": "non-PII",      "variant": "dashed" },
+
+    { "from": "report",     "to": "report-ui",   "label": "汇总",         "classification": "approved only", "variant": "default" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "热路径", "items": ["下单 → API → 订单模块 → MySQL → 后厨 WS 广播 → 后厨客户端"] },
+    { "dot": "amber",   "title": "异步路径", "items": ["发券与导出任务走 RocketMQ，报表与审计模块异步消费"] },
+    { "dot": "cyan",    "title": "数据分级", "items": ["顾客下单 PII touch / 管理操作 approved only / 定时任务 non-PII"] }
+  ]
+}

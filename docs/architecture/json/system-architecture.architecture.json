@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "点餐系统全景架构",
+    "subtitle": "顾客/管理员/后厨 — 三端 + API + 数据层",
+    "output": "system-architecture.html",
+    "viewBox": [1280, 720]
+  },
+  "components": [
+    { "id": "customer", "type": "external", "label": "顾客", "sublabel": "扫码点餐", "pos": [40, 100], "size": [130, 60] },
+    { "id": "staff",    "type": "external", "label": "管理员", "sublabel": "门店管理", "pos": [40, 240], "size": [130, 60] },
+    { "id": "kitchen",  "type": "external", "label": "后厨",   "sublabel": "接单/出餐", "pos": [40, 380], "size": [130, 60] },
+    { "id": "wechat",   "type": "external", "label": "微信支付", "sublabel": "JSAPI 收银台", "pos": [40, 520], "size": [130, 60] },
+
+    { "id": "miniapp", "type": "frontend", "label": "微信小程序", "sublabel": "点餐 · 支付 · 评价", "pos": [260, 100], "size": [180, 60], "tag": "diancan-miniapp" },
+    { "id": "adminweb","type": "frontend", "label": "管理后台",  "sublabel": "Vue3 + 后厨看板", "pos": [260, 240], "size": [180, 60], "tag": "diancan-admin-web" },
+    { "id": "kitchenws","type": "frontend", "label": "后厨客户端", "sublabel": "STOMP WebSocket", "pos": [260, 380], "size": [180, 60], "tag": "浏览器 / 电视" },
+
+    { "id": "api",     "type": "backend",  "label": "API 服务",  "sublabel": "Spring Boot 3 · :8080", "pos": [540, 240], "size": [180, 80] },
+
+    { "id": "ordermod",  "type": "backend", "label": "订单 / 购物车", "sublabel": "Order · Cart · Payment", "pos": [820, 100], "size": [170, 60] },
+    { "id": "kitchenmod","type": "backend", "label": "后厨调度",       "sublabel": "Kitchen · Print",      "pos": [820, 220], "size": [170, 60] },
+    { "id": "dishmod",   "type": "backend", "label": "菜品 / 桌台",    "sublabel": "Dish · Table · Spec",   "pos": [820, 340], "size": [170, 60] },
+    { "id": "membermod", "type": "backend", "label": "会员 / 营销",    "sublabel": "Member · Coupon · Banner", "pos": [820, 460], "size": [170, 60] },
+    { "id": "sysmod",    "type": "backend", "label": "审计 / 报表",    "sublabel": "Audit · Report · Feedback", "pos": [820, 580], "size": [170, 60] },
+
+    { "id": "mysql",    "type": "database",   "label": "MySQL 8",     "sublabel": "业务主库 :3306", "pos": [1080, 120], "size": [160, 60] },
+    { "id": "redis",    "type": "database",   "label": "Redis",       "sublabel": "缓存 · Session · PubSub", "pos": [1080, 240], "size": [160, 60] },
+    { "id": "rocketmq", "type": "messagebus", "label": "RocketMQ",    "sublabel": "异步发券 / 导出任务", "pos": [1080, 360], "size": [160, 60] }
+  ],
+  "boundaries": [
+    { "kind": "region",          "label": "用户接入", "wraps": ["customer", "staff", "kitchen", "wechat"] },
+    { "kind": "region",          "label": "客户端层", "wraps": ["miniapp", "adminweb", "kitchenws"] },
+    { "kind": "security-group",  "label": "Spring Boot 应用服务", "wraps": ["api", "ordermod", "kitchenmod", "dishmod", "membermod", "sysmod"] },
+    { "kind": "region",          "label": "数据 / 消息层", "wraps": ["mysql", "redis", "rocketmq"] }
+  ],
+  "connections": [
+    { "from": "customer",  "to":    "miniapp",   "label": "扫码", "variant": "emphasis" },
+    { "from": "staff",     "to":    "adminweb",  "label": "登录" },
+    { "from": "kitchen",   "to":    "kitchenws", "label": "接单", "variant": "emphasis" },
+    { "from": "wechat",    "to":    "miniapp",   "label": "JSAPI 回调", "variant": "dashed" },
+
+    { "from": "miniapp",   "to":    "api",       "label": "REST /api/app/**", "variant": "emphasis" },
+    { "from": "adminweb",  "to":    "api",       "label": "REST /api/admin/**" },
+    { "from": "kitchenws", "to":    "api",       "label": "STOMP /ws", "variant": "security" },
+    { "from": "api",       "to":    "kitchenws", "label": "NEW_ORDER / 播报", "variant": "emphasis", "fromSide": "right", "toSide": "left" },
+
+    { "from": "api",       "to":    "ordermod",  "label": "路由" },
+    { "from": "api",       "to":    "kitchenmod" },
+    { "from": "api",       "to":    "dishmod" },
+    { "from": "api",       "to":    "membermod" },
+    { "from": "api",       "to":    "sysmod" },
+
+    { "from": "ordermod",  "to":    "mysql",     "label": "SQL", "variant": "emphasis" },
+    { "from": "kitchenmod","to":    "mysql" },
+    { "from": "dishmod",   "to":    "mysql" },
+    { "from": "membermod", "to":    "mysql" },
+
+    { "from": "api",       "to":    "redis",     "label": "cache + pubsub", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelDy": 30 },
+    { "from": "redis",     "to":    "kitchenws", "label": "广播新订单",     "variant": "dashed",    "fromSide": "left", "toSide": "right", "route": "orthogonal-h", "labelAt": [555, 440] },
+    { "from": "membermod", "to":    "rocketmq",  "label": "发券事件", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "cyan",    "title": "接入层", "items": ["微信小程序面向顾客扫码点餐/管理后台面向门店员工/后厨端通过 WebSocket 实时接收订单"] },
+    { "dot": "emerald", "title": "应用层", "items": ["Spring Boot 3 + MyBatis-Plus + Sa-Token · 15 个业务模块 /api/ 应用同大区"] },
+    { "dot": "amber",   "title": "数据层", "items": ["MySQL 业务主库 · Redis 缓存/Session/PubSub 跨实例广播 · RocketMQ 异步发券与导出"] }
+  ]
+}
