@@ -4,3 +4,4 @@ export function shanghaiToday(now?: Date): string;
 export function shiftDate(date: string, offset: number): string;
 export function periodKey(date: string, dimension: string): string;
 export function groupTrend(days: Api.Business.Revenue[], dimension: string): Api.Business.Revenue[];
+export function adjacentDate(days: { date: string }[], date: string, direction: -1 | 1): string | null;

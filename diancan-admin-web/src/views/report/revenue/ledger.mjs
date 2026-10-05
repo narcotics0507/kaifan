@@ -26,3 +26,10 @@ export function groupTrend(days, dimension) {
   }
   return [...groups.values()].map(group => ({ date: group.date, totalRevenue: group.totalCents / 100, orderCount: group.orderCount }));
 }
+
+/** Date navigation stays within the reviewed range, including zero-revenue days. */
+export function adjacentDate(days, date, direction) {
+  const dates = days.map(day => day.date).sort();
+  const index = dates.indexOf(date);
+  return index < 0 ? null : dates[index + direction] ?? null;
+}

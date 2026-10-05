@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupTrend, money, shanghaiToday, shiftDate, sumMoney } from '../src/views/report/revenue/ledger.mjs';
+import { groupTrend, money, shanghaiToday, shiftDate, sumMoney, adjacentDate } from '../src/views/report/revenue/ledger.mjs';
 
 test('daily cash figures retain cents and include zero days in averages', () => {
   const rows = [{ date: '2026-10-01', totalRevenue: 0.1, orderCount: 1 }, { date: '2026-10-02', totalRevenue: 0.2, orderCount: 1 }, { date: '2026-10-03', totalRevenue: 0, orderCount: 0 }];
@@ -20,4 +20,13 @@ test('date filters use Shanghai day and calendar arithmetic independent of clien
   assert.equal(shanghaiToday(new Date('2026-10-04T16:01:00Z')), '2026-10-05');
   assert.equal(shiftDate('2026-01-01', -1), '2025-12-31');
   assert.equal(shiftDate('2024-03-01', -1), '2024-02-29');
+});
+
+test('detail navigation retains zero-revenue dates and respects range boundaries', () => {
+  const days = [{ date: '2026-10-03' }, { date: '2026-10-01' }, { date: '2026-10-02' }];
+  assert.equal(adjacentDate(days, '2026-10-01', -1), null);
+  assert.equal(adjacentDate(days, '2026-10-01', 1), '2026-10-02');
+  assert.equal(adjacentDate(days, '2026-10-03', -1), '2026-10-02');
+  assert.equal(adjacentDate(days, '2026-10-03', 1), null);
+  assert.equal(adjacentDate(days, '2026-09-30', 1), null);
 });
