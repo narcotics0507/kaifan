@@ -89,6 +89,7 @@ jobs:
           retention-days: 3
   deploy:
     needs: build
+    name: ${{ vars.AUTO_DEPLOY == 'paused' && 'Validate release (publication paused)' || 'Publish release' }}
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -102,6 +103,7 @@ jobs:
           name: kaifan-release-${{ github.sha }}
       - name: Publish verified release
         env:
+          DEPLOY_MODE: ${{ vars.AUTO_DEPLOY == 'paused' && 'validate' || 'release' }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -115,8 +117,13 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/kaifan-ssh/key"
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/kaifan-ssh/known_hosts"
           trap 'rm -f "$RUNNER_TEMP/kaifan-ssh/key"' EXIT
-          archive_sha=$(sha256sum kaifan-release.tar.gz | cut -d' ' -f1)
           ssh -T -i "$RUNNER_TEMP/kaifan-ssh/key" -p "${DEPLOY_PORT:-22}" \
             -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$RUNNER_TEMP/kaifan-ssh/known_hosts" \
-            "$DEPLOY_USER@$DEPLOY_HOST" "release $GITHUB_SHA $archive_sha" < kaifan-publish.tar.gz
+            "$DEPLOY_USER@$DEPLOY_HOST" dependency-cache > "$RUNNER_TEMP/kaifan-cache.json"
+          python3 scripts/shrink-release.py kaifan-release.tar.gz kaifan-publish.tar.gz "$RUNNER_TEMP/kaifan-cache.json"
+          archive_sha=$(sha256sum kaifan-publish.tar.gz | cut -d' ' -f1)
+          ssh -T -i "$RUNNER_TEMP/kaifan-ssh/key" -p "${DEPLOY_PORT:-22}" \
+            -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/kaifan-ssh/known_hosts" \
+            "$DEPLOY_USER@$DEPLOY_HOST" "$DEPLOY_MODE $GITHUB_SHA $archive_sha" < kaifan-publish.tar.gz

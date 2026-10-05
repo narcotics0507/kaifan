@@ -20,7 +20,7 @@
 bash deploy/install-ci-account.sh /path/to/deploy-key.pub
 ```
 
-脚本建立 `kaifan-deploy` 发布账号，公钥强制进入固定的发布入口。该账号不加入 Docker 组；不能通过这个密钥打开交互式 shell、端口转发或 SFTP。它只接受 `release <40位commit> <64位SHA256>` 和标准输入中的发布包，以及只读的 `dependency-cache` 校验和查询。
+脚本建立 `kaifan-deploy` 发布账号，公钥强制进入固定的发布入口。该账号不加入 Docker 组；不能通过这个密钥打开交互式 shell、端口转发或 SFTP。它只接受 `release <40位commit> <64位SHA256>` 和标准输入中的发布包，以及只读的 `dependency-cache` 校验和查询。`validate <commit> <SHA256>` 只校验并重组发布包，不改数据库或在用版本。
 
 安装过程验证当前数据库包含已上线的桌次、轮播场景、H5 请求防重和厨房顺序表，然后记录当前四份迁移文件的校验和；不重新执行已应用的迁移。若服务器不是这个已升级状态，安装会停止，需要先核对结构。
 
@@ -59,3 +59,5 @@ sudo bash deploy/rollback.sh 20261005T120000Z-gh-0123456789ab
 示例版本名需要换成实际保存的版本。回滚代码不会还原数据库变更。
 
 网页版本证据：`/build-version.json` 和 `/order/build-version.json`。GitHub Actions 页面也保留对应发布结果和发布包。
+
+需要临时停止生产发布时，将仓库 Variable `AUTO_DEPLOY` 设为 `paused`。此时流水线仍完成构建、传输与发布包校验，但不切换生产。删除该变量后恢复 main 的自动发布。

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 umask 077
-commit=${1:-};archive_sha=${2:-}
+commit=${1:-};archive_sha=${2:-};mode=${3:-publish}
+[[ "$mode" == publish || "$mode" == check ]] || exit 64
 [[ "$commit" =~ ^[0-9a-f]{40}$ && "$archive_sha" =~ ^[0-9a-f]{64}$ ]] || exit 64
 root=/apps/kaifan
 cd "$root"
@@ -36,6 +37,7 @@ then
  exit 0
 fi
 python3 /usr/local/libexec/kaifan-cache-libraries.py restore "$work/release"
+if [[ "$mode" == check ]]; then echo "Validated $commit: archive, cached libraries and complete JAR; production unchanged."; exit 0; fi
 dc=(docker compose --env-file "$root/config/private.env" -f "$root/compose.yaml")
 mkdir -p "$root/backups/github"
 "${dc[@]}" exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --user=root --single-transaction --routines --triggers --events --set-gtid-purged=OFF --no-tablespaces kaifan' | gzip > "$root/backups/github/$stamp-${commit:0:12}.sql.gz"
