@@ -6,7 +6,7 @@
 - 发布使用 GitHub 的 `production` Environment，仅允许 `main`。
 - 使用 GitHub 托管 Ubuntu runner 构建，不在 2GB 门店服务器编译。
 - Actions 固定到已核对的完整 commit SHA；依赖更新需提交代码并经过相同检查。
-- 检查通过后传送一个包含后端 JAR、两个网页和迁移 SQL 的压缩包。
+- 检查通过后传送一个包含后端应用代码、两个网页、迁移 SQL 和变化依赖的小压缩包。服务器按 SHA256 缓存 Maven 依赖，逐项校验后重组完整 JAR，避免每次上传整个 124MB JAR。
 - 服务端核对整体 SHA256、每个文件校验和、Git commit 和路径；拒绝软链接、路径穿越及超限压缩包。
 - 同一分支发布串行；同一 commit 重试不重复发布。
 
@@ -20,7 +20,7 @@
 bash deploy/install-ci-account.sh /path/to/deploy-key.pub
 ```
 
-脚本建立 `kaifan-deploy` 发布账号，公钥强制进入固定的发布入口。该账号不加入 Docker 组；不能通过这个密钥打开交互式 shell、端口转发或 SFTP。它只接受 `release <40位commit> <64位SHA256>` 和标准输入中的发布包。
+脚本建立 `kaifan-deploy` 发布账号，公钥强制进入固定的发布入口。该账号不加入 Docker 组；不能通过这个密钥打开交互式 shell、端口转发或 SFTP。它只接受 `release <40位commit> <64位SHA256>` 和标准输入中的发布包，以及只读的 `dependency-cache` 校验和查询。
 
 安装过程验证当前数据库包含已上线的桌次、轮播场景、H5 请求防重和厨房顺序表，然后记录当前四份迁移文件的校验和；不重新执行已应用的迁移。若服务器不是这个已升级状态，安装会停止，需要先核对结构。
 

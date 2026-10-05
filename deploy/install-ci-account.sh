@@ -14,13 +14,17 @@ install -d -m 755 /usr/local/libexec
 install -m 755 "$source_dir/ssh-entry.sh" /usr/local/sbin/kaifan-github-entry
 install -m 700 "$source_dir/apply-release.sh" /usr/local/sbin/kaifan-github-deploy
 install -m 755 "$source_dir/validate-release.py" /usr/local/libexec/kaifan-validate-release.py
+install -m 755 "$source_dir/cache-libraries.py" /usr/local/libexec/kaifan-cache-libraries.py
+printf '#!/usr/bin/env bash\nexec python3 /usr/local/libexec/kaifan-cache-libraries.py\n' > /usr/local/sbin/kaifan-github-cache
+chmod 700 /usr/local/sbin/kaifan-github-cache
+python3 /usr/local/libexec/kaifan-cache-libraries.py seed "$(readlink -f /apps/kaifan/current)/backend.jar"
 install -d -m 700 -o kaifan-deploy -g kaifan-deploy /home/kaifan-deploy/.ssh
 printf 'restrict,command="/usr/local/sbin/kaifan-github-entry" %s\n' "$(cat "$public_key")" > /home/kaifan-deploy/.ssh/authorized_keys
 chown kaifan-deploy:kaifan-deploy /home/kaifan-deploy/.ssh/authorized_keys
 chmod 600 /home/kaifan-deploy/.ssh/authorized_keys
 cat > /etc/sudoers.d/kaifan-github <<'SUDOERS'
 Defaults:kaifan-deploy !setenv
-kaifan-deploy ALL=(root) NOPASSWD: /usr/local/sbin/kaifan-github-deploy *
+kaifan-deploy ALL=(root) NOPASSWD: /usr/local/sbin/kaifan-github-deploy *, /usr/local/sbin/kaifan-github-cache
 SUDOERS
 chmod 440 /etc/sudoers.d/kaifan-github
 visudo -cf /etc/sudoers.d/kaifan-github >/dev/null

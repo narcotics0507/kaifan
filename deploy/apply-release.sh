@@ -35,6 +35,7 @@ then
  echo "Commit $commit is already deployed; no duplicate publication."
  exit 0
 fi
+python3 /usr/local/libexec/kaifan-cache-libraries.py restore "$work/release"
 dc=(docker compose --env-file "$root/config/private.env" -f "$root/compose.yaml")
 mkdir -p "$root/backups/github"
 "${dc[@]}" exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --user=root --single-transaction --routines --triggers --events --set-gtid-purged=OFF --no-tablespaces kaifan' | gzip > "$root/backups/github/$stamp-${commit:0:12}.sql.gz"
