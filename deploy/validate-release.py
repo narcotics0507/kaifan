@@ -15,7 +15,7 @@ def extract(archive: Path, target: Path, commit: str):
                 raise ValueError('Invalid or duplicate archive path')
             if not (member.isdir() or member.isfile()):
                 raise ValueError('Archive links and special files are forbidden')
-            if not (str(path) in {'backend.jar','release.json','SHA256SUMS','web','migrations'} or str(path).startswith(('web/','migrations/'))):
+            if not (str(path) in {'backend.jar','release.json','SHA256SUMS','web','migrations','libraries','licenses','dependency-manifest.json'} or str(path).startswith(('web/','migrations/','libraries/','licenses/'))):
                 raise ValueError('Unexpected release member')
             seen.add(member.name)
         target.mkdir(parents=True,exist_ok=True)

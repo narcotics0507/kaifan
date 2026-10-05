@@ -9,7 +9,10 @@ export VITE_XUNHUPAY_RETURN_URL="${PUBLIC_ORIGIN:-http://localhost:18080}/servic
 (cd diancan-admin-web && pnpm exec vite build --mode prod --outDir ../release/web --emptyOutDir)
 [[ -e diancan-customer-web/node_modules ]] || ln -s ../diancan-admin-web/node_modules diancan-customer-web/node_modules
 (cd diancan-customer-web && ../diancan-admin-web/node_modules/.bin/vite build --outDir ../release/web/order --emptyOutDir)
-mkdir -p release/migrations
+mkdir -p release/migrations release/licenses
+cp LICENSE release/licenses/LICENSE
+cp THIRD_PARTY_NOTICES.md release/licenses/THIRD_PARTY_NOTICES.md
+cp diancan-admin-web/LICENSE release/licenses/merchant-MIT.txt
 cp db/upgrade/*.sql release/migrations/
 python3 - "$commit" <<'PY'
 from pathlib import Path
@@ -22,4 +25,4 @@ files=sorted(p for p in root.rglob('*') if p.is_file() and p.name!='SHA256SUMS')
 (root/'SHA256SUMS').write_text(''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(root).as_posix()+'\n' for p in files))
 PY
 # Explicit members; private working files never enter the release archive.
-tar -C release -czf kaifan-release.tar.gz backend.jar web migrations release.json SHA256SUMS
+tar -C release -czf kaifan-release.tar.gz backend.jar web migrations licenses release.json SHA256SUMS
