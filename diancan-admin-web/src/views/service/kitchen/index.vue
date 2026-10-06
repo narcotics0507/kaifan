@@ -7,7 +7,7 @@ import { useMerchantOverlays } from '@/hooks/business/merchant-overlays';
 import ReturnedOrderItems from '@/components/business/returned-order-items.vue';
 import { fetchKitchenBills, fetchKitchenPapers, fetchKitchenReceipt, shortageReturn, waiveKitchenItem, type KitchenPaper, type KitchenPaperItem } from '@/service/api';
 import { connectWebSocket, subscribe } from '@/service/websocket';
-import { KitchenNoticeTracker, kitchenNoticeText, compareKitchenNumbers, type KitchenNotice } from './notices';
+import { KitchenNoticeTracker, kitchenNoticeText, compareKitchenNumbers, initialPapers, type KitchenNotice } from './notices';
 const appStore=useAppStore(),online=useOnline(),message=useMessage();
 let billRevision=0;
 const bills=ref<Api.Business.Order[]>([]),keyword=ref(''),loading=ref(false),busy=ref(false),error=ref('');
@@ -34,11 +34,15 @@ const voicePreferenceKey = 'kaifan.kitchen.voice.enabled';
 try { voiceEnabled.value = localStorage.getItem(voicePreferenceKey) !== '0'; } catch { /* Private browsing still permits this page. */ }
 const noticeTracker = new KitchenNoticeTracker();
 const initialBillIds = new Set<string>(), paperFingerprints = new Map<string, string>();
+const initialItemIds = new Map<string, Set<string>>(), pendingSpeech = new Map<string,string>(), noticeOrders = new Map<string,string>();
+const pendingSpeechCount = ref(0), lastUpdated = ref('');
+const speechInFlight = new Set<string>();
 let establishedSnapshot = false, disposed = false;
 const ownedUtterances = new Set<SpeechSynthesisUtterance>();
 function saveVoicePreference() { try { localStorage.setItem(voicePreferenceKey, voiceEnabled.value ? '1' : '0'); } catch { /* Keep in-memory preference. */ } }
-function speak(text: string) {
-  if (!voiceSupported || !voiceEnabled.value || !voiceReady.value || disposed) return;
+function speak(text: string, paperId?: string) {
+  if (!voiceSupported || !voiceEnabled.value || !voiceReady.value || document.hidden || disposed) return;
+  if(paperId){if(speechInFlight.has(paperId))return;speechInFlight.add(paperId);}
   const synth = window.speechSynthesis;
   const utterance = new SpeechSynthesisUtterance(text);
   const voices = synth.getVoices();
@@ -47,53 +51,63 @@ function speak(text: string) {
   if (voice) utterance.voice = voice;
   ownedUtterances.add(utterance);
   utterance.onstart = () => { voiceError.value = ''; };
-  utterance.onend = () => { ownedUtterances.delete(utterance); };
+  utterance.onend = () => { ownedUtterances.delete(utterance);if(paperId){speechInFlight.delete(paperId);pendingSpeech.delete(paperId);pendingSpeechCount.value=pendingSpeech.size;} };
   utterance.onerror = event => {
     ownedUtterances.delete(utterance);
+    if(paperId)speechInFlight.delete(paperId);
     if (disposed || !voiceEnabled.value || ['canceled', 'interrupted'].includes(event.error)) return;
     voiceReady.value = false;
     voiceError.value = event.error === 'not-allowed' ? '浏览器暂未允许声音，请点“开启声音”重试。' : '声音播放失败，请检查设备音量并重新试播。';
-    synth.cancel(); ownedUtterances.clear();
+    synth.cancel(); ownedUtterances.clear();speechInFlight.clear();
   };
-  try { synth.resume(); synth.speak(utterance); } catch { ownedUtterances.delete(utterance); voiceReady.value = false; voiceError.value = '声音播放失败，请重新试播。'; }
+  try { synth.resume(); synth.speak(utterance); } catch { ownedUtterances.delete(utterance);if(paperId)speechInFlight.delete(paperId);voiceReady.value = false; voiceError.value = '声音播放失败，请重新试播。'; }
 }
+function flushSpeech(){if(document.hidden||!voiceReady.value||!voiceEnabled.value)return;for(const [id,text] of pendingSpeech)speak(text,id);}
 function enableVoice(test = false) {
   if (!voiceSupported) return;
   // Call synchronously from a real click, including when the voices list is still loading.
   voiceEnabled.value = true; voiceReady.value = true; voiceError.value = ''; saveVoicePreference();
-  window.speechSynthesis.cancel(); ownedUtterances.clear();
+  window.speechSynthesis.cancel(); ownedUtterances.clear();speechInFlight.clear();
   speak(test ? kitchenNoticeText({paperId:'voice-test',kind:'new',tableCode:'A03',queueNumber:1,items:[]},true) : '后厨语音提醒已开启。');
+  void load();
 }
 function toggleVoice() {
   if (!voiceEnabled.value || !voiceReady.value) { enableVoice(); return; }
   voiceEnabled.value = false; voiceReady.value = false; saveVoicePreference();
-  window.speechSynthesis.cancel(); ownedUtterances.clear();
+  pendingSpeech.clear();pendingSpeechCount.value=0;
+  window.speechSynthesis.cancel(); ownedUtterances.clear();speechInFlight.clear();
 }
 async function checkNewPapers(nextBills: Api.Business.Order[]) {
-  if (!establishedSnapshot) { nextBills.forEach(b => initialBillIds.add(String(b.id))); establishedSnapshot = true; }
+  const currentIds=new Set(nextBills.map(b=>String(b.id)));let removedPending=false;
+  for(const id of pendingSpeech.keys())if(!currentIds.has(noticeOrders.get(id)||'')){pendingSpeech.delete(id);noticeOrders.delete(id);removedPending=true;}
+  if(removedPending){if(voiceSupported)window.speechSynthesis.cancel();ownedUtterances.clear();speechInFlight.clear();pendingSpeechCount.value=pendingSpeech.size;}
+  if (!establishedSnapshot) { nextBills.forEach(b => {initialBillIds.add(String(b.id));initialItemIds.set(String(b.id),new Set((b.items||[]).map(i=>String(i.id))));}); establishedSnapshot = true; }
   const candidates = nextBills.filter(b => paperFingerprints.get(String(b.id)) !== JSON.stringify((b.items || []).map(i => [String(i.id), i.quantity])));
   const results = await Promise.all(candidates.map(async bill => ({ bill, response: await fetchKitchenPapers(bill.id) })));
   if (disposed) return;
   const pendingNotices: KitchenNotice[] = [];
   for (const { bill, response } of results) {
-    if (response.error || !response.data) continue; // Retry on the next poll, rather than losing a notice.
+    if (response.error || !response.data) { error.value='部分厨房单据读取失败，正在重试，请核对屏幕上的单据';continue; }
     paperCache.value[String(bill.id)] = response.data;
     const baseline = initialBillIds.has(String(bill.id)) && !noticeTracker.isPrimed(bill.id);
-    const notices = noticeTracker.consume(bill.id, bill.tableCode || '', response.data, baseline);
+    if(baseline)noticeTracker.consume(bill.id,bill.tableCode||'',initialPapers(response.data,initialItemIds.get(String(bill.id))||new Set()),true);
+    const notices = noticeTracker.consume(bill.id, bill.tableCode || '', response.data);
     paperFingerprints.set(String(bill.id), JSON.stringify((bill.items || []).map(i => [String(i.id), i.quantity])));
-    pendingNotices.push(...notices);
+    notices.forEach(notice=>noticeOrders.set(notice.paperId,String(bill.id)));pendingNotices.push(...notices);
   }
-  pendingNotices.sort(compareKitchenNumbers).forEach(notice=>{const text=kitchenNoticeText(notice);lastReminder.value=text;message.info(text);speak(kitchenNoticeText(notice,true));});
+  pendingNotices.sort(compareKitchenNumbers).forEach(notice=>{const text=kitchenNoticeText(notice);lastReminder.value=text;message.info(text);if(voiceEnabled.value&&voiceSupported){pendingSpeech.set(notice.paperId,kitchenNoticeText(notice,true));pendingSpeechCount.value=pendingSpeech.size;speak(kitchenNoticeText(notice,true),notice.paperId);}});
+  if(removedPending)flushSpeech();
 }
-async function load(){if(disposed||loading.value||!online.value)return;loading.value=true;const revision=billRevision;try{const {data,error:failure}=await fetchKitchenBills();if(!failure&&data&&revision===billRevision){bills.value=data;error.value='';await checkNewPapers(data);}else if(failure)error.value='单据更新失败，请稍后重试';}finally{loading.value=false;if(revision!==billRevision)void load();}}
+async function load(){if(disposed||loading.value||!online.value)return;loading.value=true;const revision=billRevision;try{const {data,error:failure}=await fetchKitchenBills();if(!failure&&data&&revision===billRevision){bills.value=data;error.value='';await checkNewPapers(data);if(!error.value)flushSpeech();lastUpdated.value=new Date().toLocaleTimeString('zh-CN',{hour12:false});}else if(failure)error.value='单据更新失败，请稍后重试';}finally{loading.value=false;if(revision!==billRevision)void load();}}
 function openReturn(bill:Api.Business.Order,item:Api.Business.OrderItem){selectedBill.value=bill;selectedItem.value=item;returnQty.value=1;requestId.value=uuid();notifyKitchen.value=false;returnOpen.value=true;}
 async function confirmReturn(){if(busy.value||!selectedItem.value||returnQty.value==null)return;busy.value=true;try{const {data,error:failure}=await shortageReturn(selectedItem.value.id,returnQty.value,requestId.value,notifyKitchen.value);if(!failure&&data){billRevision+=1;bills.value=bills.value.map(b=>String(b.id)===String(data.id)?data:b).filter(b=>b.status===0||b.status===1);returnOpen.value=false;message.success(`缺菜已退，本单应收 ¥${money(data.actualAmount)}`);await load();}}finally{busy.value=false;}}
 async function openPapers(bill:Api.Business.Order){selectedBill.value=bill;papers.value=[];receipt.value='';paperOpen.value=true;const [p,r]=await Promise.all([fetchKitchenPapers(bill.id),fetchKitchenReceipt(bill.id)]);if(p.data)papers.value=p.data;if(r.data)receipt.value=r.data;}
 const paperLabel=(type:string)=>({TICKET_ORDER:'点菜单',TICKET_ADD:'加菜单',TICKET_CHANGE:'厨房变更通知',TICKET_REPRINT:'补打结账单'}[type]||'单据');
 let timer:ReturnType<typeof setInterval>,stops:Array<()=>void>=[];
 const changed=()=>{billRevision+=1;void load();};
-onMounted(()=>{void load();connectWebSocket();stops=[subscribe('/topic/kitchen',changed),subscribe('/topic/table-status',changed),subscribe('/topic/sold-out',changed)];timer=setInterval(()=>void load(),8000);});
-onUnmounted(()=>{disposed=true;clearInterval(timer);stops.forEach(stop=>stop());if(voiceSupported&&ownedUtterances.size)window.speechSynthesis.cancel();ownedUtterances.clear();});
+const resume=()=>{if(!document.hidden){connectWebSocket();void load();}else if(voiceSupported&&ownedUtterances.size){window.speechSynthesis.cancel();ownedUtterances.clear();speechInFlight.clear();}};
+onMounted(()=>{void load();connectWebSocket();stops=[subscribe('/topic/kitchen',changed),subscribe('/topic/table-status',changed),subscribe('/topic/sold-out',changed)];timer=setInterval(()=>void load(),8000);window.addEventListener('online',resume);document.addEventListener('visibilitychange',resume);});
+onUnmounted(()=>{disposed=true;clearInterval(timer);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume);stops.forEach(stop=>stop());if(voiceSupported&&ownedUtterances.size)window.speechSynthesis.cancel();ownedUtterances.clear();pendingSpeech.clear();});
 useMerchantOverlays(returnOpen,waiveOpen,paperOpen);
 </script>
 <template>
@@ -102,6 +116,8 @@ useMerchantOverlays(returnOpen,waiveOpen,paperOpen);
     <section class="kitchen-voice-panel" aria-label="新单和加菜语音提醒">
       <div class="voice-controls"><strong>新单 / 加菜语音</strong><span class="voice-state">{{!voiceSupported?'当前浏览器不支持语音':voiceEnabled&&voiceReady?'已开启':voiceEnabled?'待开启声音':'已关闭'}}</span><NButton type="primary" :disabled="!voiceSupported" @click="toggleVoice">{{voiceEnabled&&voiceReady?'关闭声音':'开启声音'}}</NButton><NButton :disabled="!voiceSupported" @click="enableVoice(true)">试播</NButton></div>
       <p>营业时保持页面打开、屏幕亮着，先点“试播”确认有声音。</p>
+      <p v-if="lastUpdated" class="latest-reminder">最后更新：{{lastUpdated}} · 前台每8秒检查更新，恢复网络立即刷新</p>
+      <NAlert v-if="pendingSpeechCount && (!voiceReady || voiceError)" type="warning">有 {{pendingSpeechCount}} 批提醒尚未播出，请点“开启声音”或“试播”，并核对电子单据。</NAlert>
       <NAlert v-if="voiceError" type="warning">{{voiceError}}</NAlert>
       <p v-if="lastReminder" class="latest-reminder" role="status">最新提醒：{{lastReminder}}</p>
     </section>

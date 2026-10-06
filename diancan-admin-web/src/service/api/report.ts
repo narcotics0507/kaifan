@@ -2,6 +2,22 @@ import { localStg } from '@/utils/storage';
 import { getServiceBaseURL } from '@/utils/service';
 import { request } from '../request';
 
+export type ReconciliationChannel = 'wechat' | 'alipay' | 'cash' | 'other';
+export interface ReconciliationRecord {
+  revision: number; system: Record<ReconciliationChannel, number> & { net: number; received: number; refund: number; orderCount: number };
+  actual: Record<ReconciliationChannel, number>; token: string; reason: string; operator: string; savedAt: string;
+}
+export interface ReconciliationReview {
+  date: string; system: ReconciliationRecord['system']; token: string; revision: number; stale: boolean;
+  history: ReconciliationRecord[]; unsettled: Array<{ orderNo: string; tableCode: string; amount: number }>;
+}
+export function fetchReconciliation(date: string) {
+  return request<ReconciliationReview>({ url: '/admin/report/revenue/reconciliation', method: 'get', params: { date } });
+}
+export function saveReconciliation(data: { date: string; revision: number; token: string; reason: string } & Record<ReconciliationChannel, number>) {
+  return request<ReconciliationReview>({ url: '/admin/report/revenue/reconciliation', method: 'post', data });
+}
+
 /** 营业额统计 */
 export function fetchRevenue(params: { dimension?: string; startDate: string; endDate: string }) {
   return request<Api.Business.Revenue[]>({

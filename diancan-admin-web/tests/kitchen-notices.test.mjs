@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {KitchenNoticeTracker,kitchenNoticeText,spokenTableCode,compareKitchenNumbers} from '../src/views/service/kitchen/notices.ts';
+import {KitchenNoticeTracker,kitchenNoticeText,spokenTableCode,compareKitchenNumbers,initialPapers} from '../src/views/service/kitchen/notices.ts';
 const paper=(id,type='TICKET_ORDER',items=[{dishName:'蛋炒饭',quantity:2}])=>({id,type,text:'点菜单\n桌号：A07\n订单：test\n不应从文本推断的菜 × 99',items});
+test('Failed first paper request does not swallow additions received before retry',()=>{const t=new KitchenNoticeTracker();const old=paper('old','TICKET_ORDER',[{orderItemId:'11',dishName:'旧菜',quantity:1}]);const added=paper('new','TICKET_ADD',[{orderItemId:'12',dishName:'新加菜',quantity:1}]);const rows=[old,added];t.consume('1','A03',initialPapers(rows,new Set(['11'])),true);const n=t.consume('1','A03',rows);assert.equal(n.length,1);assert.equal(n[0].kind,'add');assert.equal(n[0].items[0].name,'新加菜');assert.deepEqual(t.consume('1','A03',rows),[]);});
 test('Opening page primes old papers without announcing',()=>{const t=new KitchenNoticeTracker();assert.deepEqual(t.consume('old','A07',[paper('1')],true),[]);assert(t.isPrimed('old'));assert.deepEqual(t.consume('old','A07',[paper('1')]),[])});
 test('New order is announced once across WS plus polling',()=>{const t=new KitchenNoticeTracker();const n=t.consume('new','A07',[paper('2')]);assert.equal(n[0].kind,'new');assert.equal(kitchenNoticeText(n[0]),'A07桌有新订单：蛋炒饭2份。请查看厨房单据。');assert.deepEqual(t.consume('new','A07',[paper('2')]),[])});
 test('Whole addition transaction yields one notice with only new quantities',()=>{const t=new KitchenNoticeTracker();t.consume('1','A07',[paper('1')],true);const n=t.consume('1','A07',[paper('1'),paper('2','TICKET_ADD',[{dishName:'蛋炒饭',quantity:1},{dishName:'冬瓜汤',quantity:2}])]);assert.equal(n.length,1);assert.equal(kitchenNoticeText(n[0]),'A07桌加菜：蛋炒饭1份、冬瓜汤2份。请查看厨房单据。')});

@@ -1,4 +1,8 @@
-export interface NoticePaper { id: string | number; type: string; text: string; queueDate?: string; queueNumber?: number; items?: Array<{ dishName: string; quantity: number }>; }
+export interface NoticePaper { id: string | number; type: string; text: string; queueDate?: string; queueNumber?: number; items?: Array<{ orderItemId?: string | number; dishName: string; quantity: number }>; }
+/** Initial paper retries baseline only dishes present in the first bill snapshot. */
+export function initialPapers(papers: NoticePaper[], initialItemIds: Set<string>) {
+  return papers.filter(p => !p.items?.length || p.items.every(i => i.orderItemId == null || initialItemIds.has(String(i.orderItemId))));
+}
 export interface KitchenNotice { paperId: string; kind: 'new' | 'add'; queueDate?: string; queueNumber?: number; tableCode: string; items: Array<{ name: string; quantity: number }>; }
 /** The persisted paper identifies a transaction/batch, rather than a repeated WS frame or poll. */
 export class KitchenNoticeTracker {

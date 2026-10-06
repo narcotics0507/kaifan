@@ -4,6 +4,7 @@ import { NAlert, NButton, NCard, NDataTable, NDatePicker, NDrawer, NDrawerConten
 import { useWindowSize } from '@vueuse/core';
 import { useMerchantOverlays } from '@/hooks/business/merchant-overlays';
 import AdjustmentCards from './adjustment-cards.vue';
+import DailyReconciliation from './daily-reconciliation.vue';
 import type { DataTableColumns } from 'naive-ui';
 import { useEcharts } from '@/hooks/common/echarts';
 import type { ECOption } from '@/hooks/common/echarts';
@@ -211,7 +212,7 @@ onMounted(loadData);
     <NCard :bordered="false" class="revenue-heading">
       <div class="heading-row">
         <div><h2>营业统计</h2><p>看每天收了多少，再查每桌账单和每道菜。</p></div>
-        <NButton type="primary" :loading="exporting" :disabled="loading || !!loadError" @click="handleExport()">导出完整明细</NButton>
+        <div class="report-filters"><NButton :disabled="loading || !!loadError" @click="selectDay(dateRange[1]); detailTab = 'reconciliation'">日结核对</NButton><NButton type="primary" :loading="exporting" :disabled="loading || !!loadError" @click="handleExport()">导出完整明细</NButton></div>
       </div>
       <div class="report-filters">
         <div class="quick-dates">
@@ -275,6 +276,7 @@ onMounted(loadData);
               <NTabPane name="items" :tab="`菜品明细 (${detailItems.length})`"><p class="muted detail-note">当天关联订单中保留的菜品，包含待结账单及跨天收款单；小计未分摊整单折扣，不等同于当天实收。退掉或换掉的菜见退菜免单记录。</p><NDataTable v-if="!compactDetails" :columns="dailyItemColumns" :data="detailItems" :row-key="rowKey" :scroll-x="1209" :pagination="{ pageSize: 15 }" /><div v-else class="record-cards"><NEmpty v-if="!detailItems.length" description="当天没有关联菜品" /><article v-for="item in detailItems" :key="item.id" class="record-card"><div class="section-head"><strong>{{ item.tableCode }}桌 · {{ item.dishName }}</strong><strong>{{ yuan(item.amount) }}</strong></div><p>{{ item.quantity }}份 × {{ yuan(item.price) }} · {{ item.billingStatus }}</p><p v-if="item.remark">口味：{{ item.remark }}</p><small class="muted">{{ time(item.addedAt) }} · {{ item.orderStatus }}</small><div class="muted order-number">{{ item.orderNo }}</div></article></div></NTabPane>
               <NTabPane name="payments" :tab="`收款流水 (${detail.payments.length})`"><p class="muted detail-note">收款和退款分别保留，流水净额与当天净营业额一致。</p><NDataTable v-if="!compactDetails" :columns="paymentColumns" :data="detail.payments" :row-key="rowKey" :scroll-x="1300" :pagination="{ pageSize: 10 }" /><div v-else class="record-cards"><NEmpty v-if="!detail.payments.length" description="当天没有收款或退款流水" /><article v-for="payment in detail.payments" :key="payment.id" class="record-card"><div class="section-head"><strong>{{ payment.tableCode }}桌 · {{ payment.kind }}</strong><strong>{{ payment.kind === '退款' ? '−' : '' }}{{ yuan(payment.amount) }}</strong></div><p>{{ payment.paymentMethod }} · {{ time(payment.time) }}</p><p v-if="payment.reason">原因：{{ payment.reason }}</p><div class="muted order-number">订单 {{ payment.orderNo }}</div><div class="muted order-number">流水 {{ payment.paymentNo }}</div></article></div></NTabPane>
               <NTabPane name="adjustments" :tab="`退菜免单 (${detail.adjustments.length})`"><p class="muted detail-note">结账前退菜、免单已减少应收，不再从营业额重复扣减；换菜金额未记录时不推算。</p><NDataTable v-if="!compactDetails" :columns="adjustmentColumns" :data="detail.adjustments" :row-key="rowKey" :scroll-x="1324" :pagination="{ pageSize: 10 }" /><AdjustmentCards v-else :rows="detail.adjustments" /></NTabPane>
+              <NTabPane name="reconciliation" tab="日结核对" display-directive="if"><DailyReconciliation :date="selectedDate" /></NTabPane>
             </NTabs>
           </template>
           <NEmpty v-else-if="!detailLoading && !detailError" description="选择上方日期查看当天明细" />

@@ -22,7 +22,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:digital_ordering_system.sql,classpath:wechat-auth-schema.sql,classpath:h5-schema.sql,classpath:kitchen-sequence-schema.sql
+      schema-locations: classpath:digital_ordering_system.sql,classpath:wechat-auth-schema.sql,classpath:h5-schema.sql,classpath:kitchen-sequence-schema.sql,classpath:daily-reconciliation-schema.sql
 
   task:
     scheduling:

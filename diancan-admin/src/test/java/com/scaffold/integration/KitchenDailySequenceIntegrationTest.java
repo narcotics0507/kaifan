@@ -5,6 +5,8 @@ import com.scaffold.framework.websocket.WsService;
 import com.scaffold.modules.print.mapper.KitchenSequenceMapper;
 import com.scaffold.modules.print.service.KitchenSequenceService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -24,6 +26,10 @@ class KitchenDailySequenceIntegrationTest {
     @Autowired PlatformTransactionManager transactions;
     @Autowired JdbcTemplate jdbc;
     @MockBean WsService websocket;
+    @BeforeEach @AfterEach void clearOwnedSequenceFixtures() {
+        jdbc.update("DELETE FROM kitchen_sequence WHERE sequence_date BETWEEN '2035-06-01' AND '2035-06-06' OR sequence_date='1970-01-01'");
+        jdbc.update("DELETE FROM order_operation_log WHERE id=7350603001 AND reason='daily-sequence-test'");
+    }
 
     private KitchenSequenceService at(String instant) {
         return new KitchenSequenceService(mapper, Clock.fixed(Instant.parse(instant), ZoneOffset.UTC));
